@@ -16,6 +16,6 @@ export default function CreateEnrollmentPage() {
       </div>
 
       <EnrollmentWizardShell />
-    </div>
+/    </div>
   );
 }

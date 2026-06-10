@@ -34,10 +34,15 @@ import {
   enrollmentTypeOptions,
   getDefaultEnrollmentValues,
   getEnrollmentRules,
+  languageOptions,
   modalityOptions,
   paymentPlanOptions,
   type EnrollmentFormValues,
 } from "./enrollment-form-schema";
+import {
+  buildEnrollmentDraftPayload,
+  type EnrollmentDraftPayload,
+} from "./enrollment-draft-payload";
 
 type WizardStep = {
   id: string;
@@ -86,6 +91,89 @@ const wizardSteps: WizardStep[] = [
 ];
 
 type ValidationErrors = Partial<Record<keyof EnrollmentFormValues, string>>;
+
+const stepValidationFields: Record<string, (keyof EnrollmentFormValues)[]> = {
+  student: [
+    "firstName",
+    "lastName",
+    "email",
+    "mobilePhone",
+    "customerIdLast5",
+    "enrollmentDate",
+  ],
+  program: [
+    "enrollmentType",
+    "modality",
+    "language",
+    "otherLanguage",
+    "level",
+    "regularLessons",
+    "lessonRate",
+  ],
+  schedule: [],
+  pricing: ["paymentPlan"],
+  assignment: [],
+  documents: [],
+};
+
+function formatNameInput(value: string) {
+  return value.replace(/(^|[\s'-])([a-záéíóúüñ])/gi, (match) =>
+    match.toLocaleUpperCase()
+  );
+}
+
+function formatPhoneInput(value: string) {
+  const digits = value.replace(/\D/g, "").slice(0, 10);
+
+  if (digits.length <= 3) {
+    return digits;
+  }
+
+  if (digits.length <= 6) {
+    return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+  }
+
+  return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
+}
+
+function formatMoneyInput(value: string) {
+  const cleaned = value.replace(/[^0-9.]/g, "");
+  const parts = cleaned.split(".");
+  const dollars = parts[0] ?? "";
+  const cents = parts[1]?.slice(0, 2);
+
+  if (!dollars && cents === undefined) {
+    return "";
+  }
+
+  if (cents !== undefined) {
+    return `$${dollars}.${cents}`;
+  }
+
+  return `$${dollars}`;
+}
+
+function getVisibleLanguageOptions(values: EnrollmentFormValues) {
+  if (values.modality === "blo") {
+    return languageOptions;
+  }
+
+  const isPrivateEnrollment =
+    values.enrollmentType === "private" ||
+    values.enrollmentType === "private_intensive" ||
+    values.enrollmentType === "semi_private";
+
+  if (
+    isPrivateEnrollment &&
+    (values.modality === "f2f" || values.modality === "online")
+  ) {
+    return languageOptions.filter((option) =>
+      ["English", "Spanish"].includes(option.value)
+    );
+  }
+
+  return languageOptions.filter((option) => option.value === "English");
+}
 
 function FieldRow({
   children,
@@ -141,24 +229,38 @@ function NativeSelect({
   onChange,
   children,
   helper,
+  error,
+  required = false,
 }: Readonly<{
   label: string;
   value: string;
   onChange: (value: string) => void;
   children: React.ReactNode;
   helper?: string;
+  error?: string;
+  required?: boolean;
 }>) {
   return (
     <div className="space-y-2">
-      <Label>{label}</Label>
+      <Label>
+        {label}
+        {required ? <span className="ml-1 text-red-600">*</span> : null}
+      </Label>
       <select
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="flex h-10 w-full rounded-xl border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+        className={cn(
+          "flex h-10 w-full rounded-xl border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+          value === "" ? "text-muted-foreground" : "",
+          error ? "border-red-300 focus-visible:ring-red-200" : ""
+        )}
       >
         {children}
       </select>
-      {helper ? <p className="text-xs text-muted-foreground">{helper}</p> : null}
+      {error ? <p className="text-xs text-red-600">{error}</p> : null}
+      {!error && helper ? (
+        <p className="text-xs text-muted-foreground">{helper}</p>
+      ) : null}
     </div>
   );
 }
@@ -196,6 +298,7 @@ function StepContent({
   setField,
   errors,
   customerIdPreview,
+  draftPayload,
 }: Readonly<{
   stepId: string;
   values: EnrollmentFormValues;
@@ -205,6 +308,7 @@ function StepContent({
   ) => void;
   errors: ValidationErrors;
   customerIdPreview: string | null;
+  draftPayload: EnrollmentDraftPayload | null;
 }>) {
   const rules = getEnrollmentRules(values);
 
@@ -216,7 +320,7 @@ function StepContent({
             label="First name"
             required
             value={values.firstName}
-            onChange={(value) => setField("firstName", value)}
+            onChange={(value) => setField("firstName", formatNameInput(value))}
             placeholder="Enter first name"
             error={errors.firstName}
           />
@@ -224,7 +328,7 @@ function StepContent({
             label="Last name"
             required
             value={values.lastName}
-            onChange={(value) => setField("lastName", value)}
+            onChange={(value) => setField("lastName", formatNameInput(value))}
             placeholder="Enter last name"
             error={errors.lastName}
           />
@@ -244,7 +348,7 @@ function StepContent({
             label="Mobile phone"
             required
             value={values.mobilePhone ?? ""}
-            onChange={(value) => setField("mobilePhone", value)}
+            onChange={(value) => setField("mobilePhone", formatPhoneInput(value))}
             placeholder="787-000-0000"
           />
         </FieldRow>
@@ -296,11 +400,16 @@ function StepContent({
         <FieldRow>
           <NativeSelect
             label="Enrollment type"
+            required
             value={values.enrollmentType}
-            onChange={(value) =>
-              setField("enrollmentType", value as EnrollmentFormValues["enrollmentType"])
-            }
+            onChange={(value) => {
+              setField("enrollmentType", value as EnrollmentFormValues["enrollmentType"]);
+              setField("language", "");
+              setField("otherLanguage", "");
+            }}
+            error={errors.enrollmentType}
           >
+            <option value="">Select enrollment type</option>
             {enrollmentTypeOptions.map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
@@ -310,11 +419,16 @@ function StepContent({
 
           <NativeSelect
             label="Modality"
+            required
             value={values.modality}
-            onChange={(value) =>
-              setField("modality", value as EnrollmentFormValues["modality"])
-            }
+            onChange={(value) => {
+              setField("modality", value as EnrollmentFormValues["modality"]);
+              setField("language", "");
+              setField("otherLanguage", "");
+            }}
+            error={errors.modality}
           >
+            <option value="">Select modality</option>
             {modalityOptions.map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
@@ -324,35 +438,75 @@ function StepContent({
         </FieldRow>
 
         <FieldRow>
-          <Field
+          <NativeSelect
             label="Language"
+            required
             value={values.language}
-            onChange={(value) => setField("language", value)}
-            placeholder="English"
+            onChange={(value) => {
+              setField("language", value as EnrollmentFormValues["language"]);
+
+              if (value !== "Other") {
+                setField("otherLanguage", "");
+              }
+            }}
             error={errors.language}
-          />
+          >
+            <option value="">Select language</option>
+            {getVisibleLanguageOptions(values).map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </NativeSelect>
           <Field
-            label="Level / package"
+            label="Program package / level range"
+            required
             value={values.level ?? ""}
             onChange={(value) => setField("level", value)}
-            placeholder="Example: G1 ENG L1-4"
+            placeholder="Select or enter package / level range"
+            error={errors.level}
           />
         </FieldRow>
 
+        {values.language === "Other" ? (
+          <Field
+            label="Other language"
+            required
+            value={values.otherLanguage ?? ""}
+            onChange={(value) => setField("otherLanguage", value)}
+            placeholder="Enter language"
+            error={errors.otherLanguage}
+          />
+        ) : null}
+
         <FieldRow>
           <Field
-            label="Contract lessons"
-            value={values.contractLessons ?? ""}
-            onChange={(value) => setField("contractLessons", value)}
-            placeholder="Example: 184"
+            label="Regular lessons"
+            required
+            value={values.regularLessons ?? ""}
+            onChange={(value) => setField("regularLessons", value)}
+            placeholder="Enter regular lessons"
+            error={errors.regularLessons}
           />
           <Field
             label="Lesson rate"
+            required
             value={values.lessonRate ?? ""}
-            onChange={(value) => setField("lessonRate", value)}
-            placeholder="Example: 9.50"
+            onChange={(value) => setField("lessonRate", formatMoneyInput(value))}
+            placeholder="Enter lesson rate"
+            error={errors.lessonRate}
           />
         </FieldRow>
+
+        {values.enrollmentType === "private_intensive" ? (
+          <Field
+            label="No-charge lessons"
+            value={values.noChargeLessons ?? "0"}
+            onChange={(value) => setField("noChargeLessons", value)}
+            placeholder="Enter no-charge lessons"
+            helper="Only applies to Private Intensive programs."
+          />
+        ) : null}
 
         <div className="rounded-2xl border bg-blue-50 p-4 text-sm text-blue-900">
           Current rule preview:{" "}
@@ -361,6 +515,11 @@ function StepContent({
               ? "Private Case will be required."
               : "TBO assignment will be attempted."}
           </span>
+          <p className="mt-2 text-xs">
+            No-charge lessons only apply to Private Intensive. For regular private,
+            group, semi-private, kids, summer, CyberTeacher, and testing enrollments,
+            no-charge lessons remain 0.
+          </p>
         </div>
       </div>
     );
@@ -452,12 +611,15 @@ function StepContent({
 
         <NativeSelect
           label="Payment plan"
+          required
           value={values.paymentPlan}
           onChange={(value) =>
             setField("paymentPlan", value as EnrollmentFormValues["paymentPlan"])
           }
           helper="If not Full Paid, authorization document will be required."
+          error={errors.paymentPlan}
         >
+          <option value="">Select payment plan</option>
           {paymentPlanOptions.map((option) => (
             <option key={option.value} value={option.value}>
               {option.label}
@@ -572,12 +734,29 @@ function StepContent({
           </p>
         </CardContent>
       </Card>
+
+      {draftPayload ? (
+        <Card className="rounded-2xl">
+          <CardHeader>
+            <CardTitle>Draft Payload Preview</CardTitle>
+            <CardDescription>
+              This is the structured payload that will be used for the Supabase insert phase.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <pre className="max-h-80 overflow-auto rounded-2xl bg-slate-950 p-4 text-xs text-slate-50">
+              {JSON.stringify(draftPayload, null, 2)}
+            </pre>
+          </CardContent>
+        </Card>
+      ) : null}
     </div>
   );
 }
 
 export function EnrollmentWizardShell() {
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
+  const [maxUnlockedStepIndex, setMaxUnlockedStepIndex] = useState(0);
   const [values, setValues] = useState<EnrollmentFormValues>(
     getDefaultEnrollmentValues
   );
@@ -589,6 +768,14 @@ export function EnrollmentWizardShell() {
   const customerIdPreview = useMemo(() => {
     return buildCustomerId(values.customerIdLast5, values.enrollmentDate);
   }, [values.customerIdLast5, values.enrollmentDate]);
+
+  const draftPayload = useMemo(() => {
+    if (!customerIdPreview) {
+      return null;
+    }
+
+    return buildEnrollmentDraftPayload(values);
+  }, [customerIdPreview, values]);
 
   const progressLabel = useMemo(() => {
     return `Step ${currentStepIndex + 1} of ${wizardSteps.length}`;
@@ -615,10 +802,51 @@ export function EnrollmentWizardShell() {
     setCurrentStepIndex((current) => Math.max(current - 1, 0));
   };
 
+  const validateCurrentStep = () => {
+    const fieldsToValidate = stepValidationFields[currentStep.id] ?? [];
+    const activeFields =
+      values.language === "Other"
+        ? fieldsToValidate
+        : fieldsToValidate.filter((field) => field !== "otherLanguage");
+
+    const result = enrollmentFormSchema.safeParse(values);
+
+    if (result.success) {
+      setErrors({});
+      return true;
+    }
+
+    const nextErrors: ValidationErrors = {};
+
+    result.error.issues.forEach((issue) => {
+      const fieldName = issue.path[0] as keyof EnrollmentFormValues | undefined;
+
+      if (fieldName && activeFields.includes(fieldName)) {
+        nextErrors[fieldName] = issue.message;
+      }
+    });
+
+    if (Object.keys(nextErrors).length > 0) {
+      setErrors(nextErrors);
+      setDraftMessage("Please complete the required fields in this section.");
+      return false;
+    }
+
+    setErrors({});
+    return true;
+  };
+
   const goNext = () => {
-    setCurrentStepIndex((current) =>
-      Math.min(current + 1, wizardSteps.length - 1)
-    );
+    if (!validateCurrentStep()) {
+      return;
+    }
+
+    const nextStepIndex = Math.min(currentStepIndex + 1, wizardSteps.length - 1);
+
+    setDraftMessage(null);
+    setMaxUnlockedStepIndex((current) => Math.max(current, nextStepIndex));
+    setCurrentStepIndex(nextStepIndex);
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const validateDraft = () => {
@@ -646,7 +874,7 @@ export function EnrollmentWizardShell() {
 
   return (
     <div className="grid gap-6 xl:grid-cols-[320px_1fr]">
-      <Card className="h-fit rounded-2xl">
+      <Card className="hidden h-fit rounded-2xl xl:block">
         <CardHeader>
           <CardTitle>Enrollment Steps</CardTitle>
           <CardDescription>
@@ -657,12 +885,18 @@ export function EnrollmentWizardShell() {
           {wizardSteps.map((step, index) => {
             const isActive = index === currentStepIndex;
             const isComplete = index < currentStepIndex;
+            const isLocked = index > maxUnlockedStepIndex;
 
             return (
               <button
                 key={step.id}
                 type="button"
-                onClick={() => setCurrentStepIndex(index)}
+                onClick={() => {
+                  if (!isLocked) {
+                    setCurrentStepIndex(index);
+                  }
+                }}
+                disabled={isLocked}
                 className={cn(
                   "flex w-full items-start gap-3 rounded-2xl border p-3 text-left transition",
                   isActive
@@ -714,6 +948,7 @@ export function EnrollmentWizardShell() {
             setField={setField}
             errors={errors}
             customerIdPreview={customerIdPreview}
+            draftPayload={draftPayload}
           />
 
           {draftMessage ? (
@@ -755,7 +990,7 @@ export function EnrollmentWizardShell() {
                 onClick={goNext}
                 className="rounded-xl bg-blue-700 hover:bg-blue-800"
               >
-                Continue
+                Confirm & Continue
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             )}
