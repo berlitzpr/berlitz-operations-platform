@@ -9,7 +9,6 @@ import {
   ClipboardCheck,
   CreditCard,
   FileText,
-  FolderKanban,
   UserRound,
   UsersRound,
 } from "lucide-react";
@@ -28,6 +27,17 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+
+import {
+  buildCustomerId,
+  enrollmentFormSchema,
+  enrollmentTypeOptions,
+  getDefaultEnrollmentValues,
+  getEnrollmentRules,
+  modalityOptions,
+  paymentPlanOptions,
+  type EnrollmentFormValues,
+} from "./enrollment-form-schema";
 
 type WizardStep = {
   id: string;
@@ -75,6 +85,8 @@ const wizardSteps: WizardStep[] = [
   },
 ];
 
+type ValidationErrors = Partial<Record<keyof EnrollmentFormValues, string>>;
+
 function FieldRow({
   children,
 }: Readonly<{
@@ -85,37 +97,65 @@ function FieldRow({
 
 function Field({
   label,
+  value,
+  onChange,
   placeholder,
   helper,
   type = "text",
+  error,
+  required = false,
 }: Readonly<{
   label: string;
+  value: string;
+  onChange: (value: string) => void;
   placeholder?: string;
   helper?: string;
   type?: string;
+  error?: string;
+  required?: boolean;
 }>) {
   return (
     <div className="space-y-2">
-      <Label>{label}</Label>
-      <Input type={type} placeholder={placeholder} />
-      {helper ? <p className="text-xs text-muted-foreground">{helper}</p> : null}
+      <Label>
+        {label}
+        {required ? <span className="ml-1 text-red-600">*</span> : null}
+      </Label>
+      <Input
+        type={type}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder={placeholder}
+        className={cn(error ? "border-red-300 focus-visible:ring-red-200" : "")}
+      />
+      {error ? <p className="text-xs text-red-600">{error}</p> : null}
+      {!error && helper ? (
+        <p className="text-xs text-muted-foreground">{helper}</p>
+      ) : null}
     </div>
   );
 }
 
 function NativeSelect({
   label,
+  value,
+  onChange,
   children,
   helper,
 }: Readonly<{
   label: string;
+  value: string;
+  onChange: (value: string) => void;
   children: React.ReactNode;
   helper?: string;
 }>) {
   return (
     <div className="space-y-2">
       <Label>{label}</Label>
-      <select className="flex h-10 w-full rounded-xl border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+      <select
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="flex h-10 w-full rounded-xl border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+      >
         {children}
       </select>
       {helper ? <p className="text-xs text-muted-foreground">{helper}</p> : null}
@@ -123,36 +163,128 @@ function NativeSelect({
   );
 }
 
-function StepContent({ stepId }: Readonly<{ stepId: string }>) {
+function RequirementCard({
+  title,
+  active,
+  description,
+}: Readonly<{
+  title: string;
+  active: boolean;
+  description: string;
+}>) {
+  return (
+    <div
+      className={cn(
+        "rounded-2xl border p-4",
+        active ? "border-blue-200 bg-blue-50" : "bg-slate-50"
+      )}
+    >
+      <div className="flex items-center gap-2">
+        <BadgeCheck
+          className={cn("h-4 w-4", active ? "text-blue-700" : "text-slate-400")}
+        />
+        <p className="text-sm font-semibold">{title}</p>
+      </div>
+      <p className="mt-2 text-xs text-muted-foreground">{description}</p>
+    </div>
+  );
+}
+
+function StepContent({
+  stepId,
+  values,
+  setField,
+  errors,
+  customerIdPreview,
+}: Readonly<{
+  stepId: string;
+  values: EnrollmentFormValues;
+  setField: <T extends keyof EnrollmentFormValues>(
+    field: T,
+    value: EnrollmentFormValues[T]
+  ) => void;
+  errors: ValidationErrors;
+  customerIdPreview: string | null;
+}>) {
+  const rules = getEnrollmentRules(values);
+
   if (stepId === "student") {
     return (
       <div className="space-y-5">
         <FieldRow>
-          <Field label="First name" placeholder="Example: Dante" />
-          <Field label="Last name" placeholder="Example: Castaño Vasquez" />
+          <Field
+            label="First name"
+            required
+            value={values.firstName}
+            onChange={(value) => setField("firstName", value)}
+            placeholder="Enter first name"
+            error={errors.firstName}
+          />
+          <Field
+            label="Last name"
+            required
+            value={values.lastName}
+            onChange={(value) => setField("lastName", value)}
+            placeholder="Enter last name"
+            error={errors.lastName}
+          />
         </FieldRow>
 
         <FieldRow>
-          <Field label="Email" placeholder="student@email.com" type="email" />
-          <Field label="Mobile phone" placeholder="787-000-0000" />
+          <Field
+            label="Email"
+            required
+            value={values.email}
+            onChange={(value) => setField("email", value)}
+            placeholder="student@email.com"
+            type="email"
+            error={errors.email}
+          />
+          <Field
+            label="Mobile phone"
+            required
+            value={values.mobilePhone ?? ""}
+            onChange={(value) => setField("mobilePhone", value)}
+            placeholder="787-000-0000"
+          />
         </FieldRow>
 
         <FieldRow>
           <Field
             label="Customer ID last 5 digits"
+            required
+            value={values.customerIdLast5}
+            onChange={(value) => setField("customerIdLast5", value)}
             placeholder="00203"
-            helper="The system will generate: 003-120-YY-#####"
+            helper="The system will generate the full Customer ID."
+            error={errors.customerIdLast5}
           />
           <Field
             label="Enrollment date"
+            required
+            value={values.enrollmentDate}
+            onChange={(value) => setField("enrollmentDate", value)}
             type="date"
-            helper="Defaults to today's date when the real form is connected."
+            error={errors.enrollmentDate}
           />
         </FieldRow>
 
+        <div className="rounded-2xl border bg-slate-50 p-4 text-sm">
+          <p className="text-xs font-medium uppercase tracking-[0.16em] text-slate-500">
+            Customer ID Preview
+          </p>
+          <p className="mt-2 text-lg font-semibold text-slate-950">
+            {customerIdPreview ?? "Enter 5 digits to generate preview"}
+          </p>
+        </div>
+
         <div className="space-y-2">
-          <Label>Address / Notes</Label>
-          <Textarea placeholder="Address, special notes, company details, or internal comments." />
+          <Label>Internal notes</Label>
+          <Textarea
+            value={values.notes ?? ""}
+            onChange={(event) => setField("notes", event.target.value)}
+            placeholder="Address, special notes, company details, or internal comments."
+          />
         </div>
       </div>
     );
@@ -162,45 +294,73 @@ function StepContent({ stepId }: Readonly<{ stepId: string }>) {
     return (
       <div className="space-y-5">
         <FieldRow>
-          <NativeSelect label="Enrollment type">
-            <option>Group</option>
-            <option>Private</option>
-            <option>Private Intensive</option>
-            <option>Semi-private</option>
-            <option>Kids</option>
-            <option>Summer</option>
-            <option>CyberTeacher / Flex</option>
-            <option>Testing</option>
+          <NativeSelect
+            label="Enrollment type"
+            value={values.enrollmentType}
+            onChange={(value) =>
+              setField("enrollmentType", value as EnrollmentFormValues["enrollmentType"])
+            }
+          >
+            {enrollmentTypeOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
           </NativeSelect>
 
-          <NativeSelect label="Modality">
-            <option>F2F / Local</option>
-            <option>Online / Zoom</option>
-            <option>BLO</option>
-            <option>Self-study</option>
-            <option>Testing</option>
+          <NativeSelect
+            label="Modality"
+            value={values.modality}
+            onChange={(value) =>
+              setField("modality", value as EnrollmentFormValues["modality"])
+            }
+          >
+            {modalityOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
           </NativeSelect>
         </FieldRow>
 
         <FieldRow>
-          <NativeSelect label="Language">
-            <option>English</option>
-            <option>Spanish</option>
-            <option>French</option>
-            <option>German</option>
-            <option>Other</option>
-          </NativeSelect>
-
-          <Field label="Level / package" placeholder="Example: G1 ENG L1-4" />
+          <Field
+            label="Language"
+            value={values.language}
+            onChange={(value) => setField("language", value)}
+            placeholder="English"
+            error={errors.language}
+          />
+          <Field
+            label="Level / package"
+            value={values.level ?? ""}
+            onChange={(value) => setField("level", value)}
+            placeholder="Example: G1 ENG L1-4"
+          />
         </FieldRow>
 
         <FieldRow>
-          <Field label="Contract lessons" placeholder="Example: 184" />
-          <Field label="Lesson rate" placeholder="Example: 9.50" />
+          <Field
+            label="Contract lessons"
+            value={values.contractLessons ?? ""}
+            onChange={(value) => setField("contractLessons", value)}
+            placeholder="Example: 184"
+          />
+          <Field
+            label="Lesson rate"
+            value={values.lessonRate ?? ""}
+            onChange={(value) => setField("lessonRate", value)}
+            placeholder="Example: 9.50"
+          />
         </FieldRow>
 
         <div className="rounded-2xl border bg-blue-50 p-4 text-sm text-blue-900">
-          Program options will later come from the Program Catalog, not hardcoded fields.
+          Current rule preview:{" "}
+          <span className="font-semibold">
+            {rules.requiresPrivateCase
+              ? "Private Case will be required."
+              : "TBO assignment will be attempted."}
+          </span>
         </div>
       </div>
     );
@@ -210,24 +370,49 @@ function StepContent({ stepId }: Readonly<{ stepId: string }>) {
     return (
       <div className="space-y-5">
         <FieldRow>
-          <Field label="Preferred days" placeholder="Example: Tuesday / Thursday" />
-          <Field label="Preferred time" placeholder="Example: 6:45 PM - 9:00 PM" />
+          <Field
+            label="Preferred days"
+            value={values.preferredDays ?? ""}
+            onChange={(value) => setField("preferredDays", value)}
+            placeholder="Example: Tuesday / Thursday"
+          />
+          <Field
+            label="Preferred time"
+            value={values.preferredTime ?? ""}
+            onChange={(value) => setField("preferredTime", value)}
+            placeholder="Example: 6:45 PM - 9:00 PM"
+          />
         </FieldRow>
 
         <FieldRow>
-          <Field label="Tentative start date" type="date" />
-          <Field label="Confirmed start date" type="date" />
+          <Field
+            label="Tentative start date"
+            value={values.tentativeStartDate ?? ""}
+            onChange={(value) => setField("tentativeStartDate", value)}
+            type="date"
+          />
+          <Field
+            label="Confirmed start date"
+            value={values.confirmedStartDate ?? ""}
+            onChange={(value) => setField("confirmedStartDate", value)}
+            type="date"
+          />
         </FieldRow>
 
         <FieldRow>
-          <Field label="Contract start date" type="date" />
-          <Field label="Contract expiration date" type="date" />
+          <Field
+            label="Contract start date"
+            value={values.contractStartDate ?? ""}
+            onChange={(value) => setField("contractStartDate", value)}
+            type="date"
+          />
+          <Field
+            label="Contract expiration date"
+            value={values.contractExpirationDate ?? ""}
+            onChange={(value) => setField("contractExpirationDate", value)}
+            type="date"
+          />
         </FieldRow>
-
-        <div className="space-y-2">
-          <Label>Schedule notes</Label>
-          <Textarea placeholder="Special schedule request, restrictions, pending confirmation, or manager note." />
-        </div>
       </div>
     );
   }
@@ -236,32 +421,54 @@ function StepContent({ stepId }: Readonly<{ stepId: string }>) {
     return (
       <div className="space-y-5">
         <FieldRow>
-          <Field label="Tuition" placeholder="Example: 1748.00" />
-          <Field label="Registration fee" placeholder="Example: 25.00" />
+          <Field
+            label="Tuition"
+            value={values.tuition ?? ""}
+            onChange={(value) => setField("tuition", value)}
+            placeholder="Example: 1748.00"
+          />
+          <Field
+            label="Registration fee"
+            value={values.registrationFee ?? ""}
+            onChange={(value) => setField("registrationFee", value)}
+            placeholder="Example: 25.00"
+          />
         </FieldRow>
 
         <FieldRow>
-          <Field label="Material fee" placeholder="Example: 103.00" />
-          <Field label="Total amount" placeholder="Auto-calculated later" />
+          <Field
+            label="Material fee"
+            value={values.materialFee ?? ""}
+            onChange={(value) => setField("materialFee", value)}
+            placeholder="Example: 103.00"
+          />
+          <Field
+            label="Deposit"
+            value={values.deposit ?? ""}
+            onChange={(value) => setField("deposit", value)}
+            placeholder="Example: 100.00"
+          />
         </FieldRow>
 
-        <FieldRow>
-          <NativeSelect
-            label="Payment plan"
-            helper="If not Full Paid, authorization document will be required."
-          >
-            <option>Full Paid</option>
-            <option>Every 2 weeks</option>
-            <option>Every 4 weeks / Monthly</option>
-            <option>By level</option>
-            <option>Custom - Manager approval</option>
-          </NativeSelect>
-
-          <Field label="Deposit" placeholder="Example: 100.00" />
-        </FieldRow>
+        <NativeSelect
+          label="Payment plan"
+          value={values.paymentPlan}
+          onChange={(value) =>
+            setField("paymentPlan", value as EnrollmentFormValues["paymentPlan"])
+          }
+          helper="If not Full Paid, authorization document will be required."
+        >
+          {paymentPlanOptions.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </NativeSelect>
 
         <div className="rounded-2xl border bg-amber-50 p-4 text-sm text-amber-900">
-          Payment schedule dates will be generated automatically based on the selected plan.
+          {rules.requiresPaymentAuthorization
+            ? "Payment authorization will be required for this payment plan."
+            : "Full Paid selected. Payment authorization is not required by default."}
         </div>
       </div>
     );
@@ -270,93 +477,139 @@ function StepContent({ stepId }: Readonly<{ stepId: string }>) {
   if (stepId === "assignment") {
     return (
       <div className="grid gap-4 lg:grid-cols-2">
-        <Card className="rounded-2xl">
-          <CardHeader>
-            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-50 text-blue-700">
-              <UsersRound className="h-5 w-5" />
-            </div>
-            <CardTitle>Group enrollment logic</CardTitle>
-            <CardDescription>
-              If this is a group enrollment, the system will suggest a TBO automatically.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3 text-sm text-muted-foreground">
-            <p>Matching criteria:</p>
-            <ul className="list-disc space-y-1 pl-5">
-              <li>Modality</li>
-              <li>Program/package</li>
-              <li>Level</li>
-              <li>Schedule</li>
-              <li>Start window</li>
-              <li>Capacity and quorum rules</li>
-            </ul>
-          </CardContent>
-        </Card>
-
-        <Card className="rounded-2xl">
-          <CardHeader>
-            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-50 text-blue-700">
-              <FolderKanban className="h-5 w-5" />
-            </div>
-            <CardTitle>Private enrollment logic</CardTitle>
-            <CardDescription>
-              If this is private, the system will create a Private Case for Customer Service.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3 text-sm text-muted-foreground">
-            <p>Private Case preview:</p>
-            <ul className="list-disc space-y-1 pl-5">
-              <li>Advisor tasks</li>
-              <li>Customer Service tasks</li>
-              <li>Schedule and program details</li>
-              <li>Payment schedule if applicable</li>
-              <li>LCMS / Zoom / Cosmos / EPED actions</li>
-            </ul>
-          </CardContent>
-        </Card>
+        <RequirementCard
+          title="TBO assignment"
+          active={rules.requiresTbo}
+          description="For group enrollments, the system will attempt to match modality, program, level, schedule, start window, capacity, and quorum."
+        />
+        <RequirementCard
+          title="Private Case"
+          active={rules.requiresPrivateCase}
+          description="For private enrollments, the system will create a case for Customer Service with advisor and CSR tasks."
+        />
+        <RequirementCard
+          title="Manager approval"
+          active={rules.requiresManagerApproval}
+          description="Custom payment plans and future override scenarios will require manager approval."
+        />
+        <RequirementCard
+          title="Needs review fallback"
+          active
+          description="If no TBO match is found or key details are missing, the enrollment will be marked for operational review."
+        />
       </div>
     );
   }
 
   return (
     <div className="space-y-5">
-      <div className="grid gap-4 md:grid-cols-3">
-        {[
-          "Enrollment Agreement",
-          "Payment Authorization",
-          "Private Intensive Annex",
-          "Document Checklist",
-          "Operational Checklist",
-          "Sales Report Entry",
-        ].map((item) => (
-          <div key={item} className="rounded-2xl border p-4">
-            <div className="flex items-center gap-2">
-              <BadgeCheck className="h-4 w-4 text-blue-700" />
-              <p className="text-sm font-medium">{item}</p>
-            </div>
-            <p className="mt-2 text-xs text-muted-foreground">
-              Requirement will be determined automatically from enrollment rules.
-            </p>
-          </div>
-        ))}
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <RequirementCard
+          title="Enrollment Agreement"
+          active
+          description="Required for every enrollment."
+        />
+        <RequirementCard
+          title="Payment Authorization"
+          active={rules.requiresPaymentAuthorization}
+          description="Required when the payment plan is not Full Paid."
+        />
+        <RequirementCard
+          title="Private Intensive Annex"
+          active={rules.isPrivateIntensive}
+          description="Required for Private Intensive fixed price/term programs."
+        />
+        <RequirementCard
+          title="Private Case"
+          active={rules.requiresPrivateCase}
+          description="Created automatically for private enrollments."
+        />
+        <RequirementCard
+          title="TBO Checklist"
+          active={rules.requiresTbo}
+          description="Created when a group enrollment is assigned or queued for review."
+        />
+        <RequirementCard
+          title="Sales Report Entry"
+          active
+          description="Enrollment will feed the sales report once submitted."
+        />
       </div>
 
-      <div className="rounded-2xl border bg-slate-50 p-4 text-sm text-slate-700">
-        After submit, the system will create the enrollment, documents, checklist,
-        report entry, audit log, and either TBO assignment or Private Case.
-      </div>
+      <Card className="rounded-2xl bg-slate-50">
+        <CardHeader>
+          <CardTitle>Draft Summary</CardTitle>
+          <CardDescription>
+            This preview will become the payload for Supabase in the next phase.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-3 text-sm md:grid-cols-2">
+          <p>
+            <span className="font-medium">Student:</span>{" "}
+            {values.firstName || values.lastName
+              ? `${values.firstName} ${values.lastName}`.trim()
+              : "Not entered"}
+          </p>
+          <p>
+            <span className="font-medium">Customer ID:</span>{" "}
+            {customerIdPreview ?? "Pending"}
+          </p>
+          <p>
+            <span className="font-medium">Enrollment type:</span>{" "}
+            {values.enrollmentType}
+          </p>
+          <p>
+            <span className="font-medium">Payment plan:</span>{" "}
+            {values.paymentPlan}
+          </p>
+          <p>
+            <span className="font-medium">Assignment:</span>{" "}
+            {rules.requiresPrivateCase ? "Private Case" : "TBO assignment"}
+          </p>
+          <p>
+            <span className="font-medium">Authorization required:</span>{" "}
+            {rules.requiresPaymentAuthorization ? "Yes" : "No"}
+          </p>
+        </CardContent>
+      </Card>
     </div>
   );
 }
 
 export function EnrollmentWizardShell() {
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
+  const [values, setValues] = useState<EnrollmentFormValues>(
+    getDefaultEnrollmentValues
+  );
+  const [errors, setErrors] = useState<ValidationErrors>({});
+  const [draftMessage, setDraftMessage] = useState<string | null>(null);
 
   const currentStep = wizardSteps[currentStepIndex];
+
+  const customerIdPreview = useMemo(() => {
+    return buildCustomerId(values.customerIdLast5, values.enrollmentDate);
+  }, [values.customerIdLast5, values.enrollmentDate]);
 
   const progressLabel = useMemo(() => {
     return `Step ${currentStepIndex + 1} of ${wizardSteps.length}`;
   }, [currentStepIndex]);
+
+  const setField = <T extends keyof EnrollmentFormValues>(
+    field: T,
+    value: EnrollmentFormValues[T]
+  ) => {
+    setValues((current) => ({
+      ...current,
+      [field]: value,
+    }));
+
+    setErrors((current) => ({
+      ...current,
+      [field]: undefined,
+    }));
+
+    setDraftMessage(null);
+  };
 
   const goBack = () => {
     setCurrentStepIndex((current) => Math.max(current - 1, 0));
@@ -366,6 +619,29 @@ export function EnrollmentWizardShell() {
     setCurrentStepIndex((current) =>
       Math.min(current + 1, wizardSteps.length - 1)
     );
+  };
+
+  const validateDraft = () => {
+    const result = enrollmentFormSchema.safeParse(values);
+
+    if (!result.success) {
+      const nextErrors: ValidationErrors = {};
+
+      result.error.issues.forEach((issue) => {
+        const fieldName = issue.path[0] as keyof EnrollmentFormValues | undefined;
+
+        if (fieldName) {
+          nextErrors[fieldName] = issue.message;
+        }
+      });
+
+      setErrors(nextErrors);
+      setDraftMessage("Review required fields before creating the enrollment draft.");
+      return;
+    }
+
+    setErrors({});
+    setDraftMessage("Enrollment draft payload is valid and ready for Supabase insert.");
   };
 
   return (
@@ -432,7 +708,26 @@ export function EnrollmentWizardShell() {
         </CardHeader>
 
         <CardContent className="space-y-6 pt-6">
-          <StepContent stepId={currentStep.id} />
+          <StepContent
+            stepId={currentStep.id}
+            values={values}
+            setField={setField}
+            errors={errors}
+            customerIdPreview={customerIdPreview}
+          />
+
+          {draftMessage ? (
+            <div
+              className={cn(
+                "rounded-2xl border p-4 text-sm",
+                Object.keys(errors).length > 0
+                  ? "border-red-200 bg-red-50 text-red-700"
+                  : "border-green-200 bg-green-50 text-green-700"
+              )}
+            >
+              {draftMessage}
+            </div>
+          ) : null}
 
           <div className="flex items-center justify-between border-t pt-6">
             <Button
@@ -447,11 +742,19 @@ export function EnrollmentWizardShell() {
             </Button>
 
             {currentStepIndex === wizardSteps.length - 1 ? (
-              <Button type="button" className="rounded-xl bg-blue-700 hover:bg-blue-800">
-                Create Enrollment Draft
+              <Button
+                type="button"
+                onClick={validateDraft}
+                className="rounded-xl bg-blue-700 hover:bg-blue-800"
+              >
+                Validate Enrollment Draft
               </Button>
             ) : (
-              <Button type="button" onClick={goNext} className="rounded-xl bg-blue-700 hover:bg-blue-800">
+              <Button
+                type="button"
+                onClick={goNext}
+                className="rounded-xl bg-blue-700 hover:bg-blue-800"
+              >
                 Continue
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
