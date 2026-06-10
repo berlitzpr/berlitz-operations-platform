@@ -2,21 +2,31 @@ import { z } from "zod";
 
 export const enrollmentTypeOptions = [
   { value: "group", label: "Group" },
-  { value: "private", label: "Private" },
-  { value: "private_intensive", label: "Private Intensive" },
+  { value: "private", label: "Private (Premium)" },
+  { value: "private_intensive", label: "Private (Intensive)" },
   { value: "semi_private", label: "Semi-private" },
   { value: "kids", label: "Kids" },
-  { value: "summer", label: "Summer" },
+  { value: "summer", label: "Kids (Summer)" },
   { value: "cyberteacher", label: "CyberTeacher / Flex" },
   { value: "testing", label: "Testing" },
 ] as const;
 
 export const modalityOptions = [
-  { value: "f2f", label: "F2F / Local" },
-  { value: "online", label: "Online / Zoom" },
-  { value: "blo", label: "BLO" },
+  { value: "f2f", label: "F2F (Hato Rey LC)" },
+  { value: "online", label: "Online (Zoom)" },
+  { value: "blo", label: "Gold (BLO)" },
   { value: "self_study", label: "Self-study" },
   { value: "testing", label: "Testing" },
+] as const;
+
+export const languageOptions = [
+  { value: "English", label: "English" },
+  { value: "Spanish", label: "Spanish" },
+  { value: "Japanese", label: "Japanese" },
+  { value: "German", label: "German" },
+  { value: "Italian", label: "Italian" },
+  { value: "Portuguese", label: "Portuguese" },
+  { value: "Other", label: "Other" },
 ] as const;
 
 export const paymentPlanOptions = [
@@ -27,53 +37,55 @@ export const paymentPlanOptions = [
   { value: "custom", label: "Custom - Manager approval" },
 ] as const;
 
-export const enrollmentFormSchema = z.object({
-  firstName: z.string().min(1, "First name is required."),
-  lastName: z.string().min(1, "Last name is required."),
-  email: z.string().min(1, "Email is required.").email("Enter a valid email."),
-  mobilePhone: z.string().min(1, "Mobile phone is required."),
-  customerIdLast5: z
-    .string()
-    .regex(/^[0-9]{5}$/, "Customer ID must be exactly 5 digits."),
-  enrollmentDate: z.string().min(1, "Enrollment date is required."),
+export const enrollmentFormSchema = z
+  .object({
+    firstName: z.string().min(1, "First name is required."),
+    lastName: z.string().min(1, "Last name is required."),
+    email: z.string().min(1, "Email is required.").email("Enter a valid email."),
+    mobilePhone: z.string().min(1, "Mobile phone is required."),
+    customerIdLast5: z
+      .string()
+      .regex(/^[0-9]{5}$/, "Customer ID must be exactly 5 digits."),
+    enrollmentDate: z.string().min(1, "Enrollment date is required."),
 
-  enrollmentType: z.enum([
-    "group",
-    "private",
-    "private_intensive",
-    "semi_private",
-    "kids",
-    "summer",
-    "cyberteacher",
-    "testing",
-  ]),
-  modality: z.enum(["f2f", "online", "blo", "self_study", "testing"]),
-  language: z.string().min(1, "Language is required."),
-  level: z.string().optional(),
-  contractLessons: z.string().optional(),
-  lessonRate: z.string().optional(),
+    enrollmentType: z.string().min(1, "Enrollment type is required."),
 
-  preferredDays: z.string().optional(),
-  preferredTime: z.string().optional(),
-  tentativeStartDate: z.string().optional(),
-  confirmedStartDate: z.string().optional(),
-  contractStartDate: z.string().optional(),
-  contractExpirationDate: z.string().optional(),
+    modality: z.string().min(1, "Modality is required."),
 
-  tuition: z.string().optional(),
-  registrationFee: z.string().optional(),
-  materialFee: z.string().optional(),
-  deposit: z.string().optional(),
-  paymentPlan: z.enum([
-    "full_paid",
-    "every_2_weeks",
-    "every_4_weeks",
-    "by_level",
-    "custom",
-  ]),
+    language: z.string().min(1, "Language is required."),
 
-  notes: z.string().optional(),
-});
+    otherLanguage: z.string().optional(),
+
+    level: z.string().min(1, "Program package / level range is required."),
+    regularLessons: z.string().min(1, "Regular lessons are required."),
+    noChargeLessons: z.string().optional(),
+    lessonRate: z.string().min(1, "Lesson rate is required."),
+
+    preferredDays: z.string().optional(),
+    preferredTime: z.string().optional(),
+    tentativeStartDate: z.string().optional(),
+    confirmedStartDate: z.string().optional(),
+    contractStartDate: z.string().optional(),
+    contractExpirationDate: z.string().optional(),
+
+    tuition: z.string().optional(),
+    registrationFee: z.string().optional(),
+    materialFee: z.string().optional(),
+    deposit: z.string().optional(),
+
+    paymentPlan: z.string().min(1, "Payment plan is required."),
+
+    notes: z.string().optional(),
+  })
+  .superRefine((values, context) => {
+    if (values.language === "Other" && !values.otherLanguage?.trim()) {
+      context.addIssue({
+        code: "custom",
+        path: ["otherLanguage"],
+        message: "Other language is required.",
+      });
+    }
+  });
 
 export type EnrollmentFormValues = z.infer<typeof enrollmentFormSchema>;
 
@@ -90,11 +102,14 @@ export function getDefaultEnrollmentValues(): EnrollmentFormValues {
     customerIdLast5: "",
     enrollmentDate: getTodayDateString(),
 
-    enrollmentType: "group",
-    modality: "f2f",
-    language: "English",
+    enrollmentType: "",
+    modality: "",
+    language: "",
+    otherLanguage: "",
+
     level: "",
-    contractLessons: "",
+    regularLessons: "",
+    noChargeLessons: "0",
     lessonRate: "",
 
     preferredDays: "",
@@ -108,7 +123,7 @@ export function getDefaultEnrollmentValues(): EnrollmentFormValues {
     registrationFee: "",
     materialFee: "",
     deposit: "",
-    paymentPlan: "full_paid",
+    paymentPlan: "",
 
     notes: "",
   };
@@ -133,10 +148,15 @@ export function getEnrollmentRules(values: EnrollmentFormValues) {
     values.enrollmentType === "semi_private";
 
   const isPrivateIntensive = values.enrollmentType === "private_intensive";
-  const isGroup = !isPrivate && values.enrollmentType !== "testing";
+  const isGroup =
+    values.enrollmentType !== "" &&
+    !isPrivate &&
+    values.enrollmentType !== "testing";
+
   const requiresTbo = isGroup;
   const requiresPrivateCase = isPrivate;
-  const requiresPaymentAuthorization = values.paymentPlan !== "full_paid";
+  const requiresPaymentAuthorization =
+    values.paymentPlan !== "" && values.paymentPlan !== "full_paid";
   const requiresManagerApproval = values.paymentPlan === "custom";
 
   return {
