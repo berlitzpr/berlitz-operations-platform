@@ -43,6 +43,14 @@ import {
   buildEnrollmentDraftPayload,
   type EnrollmentDraftPayload,
 } from "./enrollment-draft-payload";
+import { getPrivateProgramRule } from "./private-program-rules";
+import {
+  getDayOptions,
+  getScheduleProgramOptions,
+  getTimeOptions,
+  isPrivateEnrollment,
+  privateScheduleModeOptions,
+} from "./schedule-rules";
 
 type WizardStep = {
   id: string;
@@ -92,6 +100,47 @@ const wizardSteps: WizardStep[] = [
 
 type ValidationErrors = Partial<Record<keyof EnrollmentFormValues, string>>;
 
+const privateLevelOptions = Array.from({ length: 10 }, (_, index) => {
+  const level = String(index + 1);
+
+  return {
+    value: level,
+    label: `Level ${level}`,
+  };
+});
+
+const privateFocusOptions = [
+  { value: "social", label: "Social" },
+  { value: "business", label: "Business" },
+];
+
+const privateSpecializationStatusOptions = [
+  { value: "pending", label: "Pending student selection" },
+  { value: "selected", label: "Selected / provided" },
+  { value: "not_applicable", label: "Not applicable" },
+];
+
+const privatePaceOptions = [
+  { value: "regular", label: "Regular" },
+  { value: "express", label: "Express" },
+];
+
+function getVisiblePrivatePaceOptions(values: Pick<EnrollmentFormValues, "enrollmentType">) {
+  if (values.enrollmentType === "private_am") {
+    return privatePaceOptions.filter((option) => option.value === "regular");
+  }
+
+  return privatePaceOptions;
+}
+
+function isPrivateAcademicProgram(values: Pick<EnrollmentFormValues, "enrollmentType">) {
+  return (
+    values.enrollmentType === "private" ||
+    values.enrollmentType === "private_intensive" ||
+    values.enrollmentType === "private_am"
+  );
+}
+
 const stepValidationFields: Record<string, (keyof EnrollmentFormValues)[]> = {
   student: [
     "firstName",
@@ -106,11 +155,20 @@ const stepValidationFields: Record<string, (keyof EnrollmentFormValues)[]> = {
     "modality",
     "language",
     "otherLanguage",
-    "level",
     "regularLessons",
     "lessonRate",
   ],
-  schedule: [],
+  schedule: [
+    "scheduleProgramType",
+    "scheduleMode",
+    "preferredDays",
+    "preferredTime",
+    "privateScheduleNotes",
+    "tentativeStartDate",
+    "confirmedStartDate",
+    "contractStartDate",
+    "contractExpirationDate",
+  ],
   pricing: ["paymentPlan"],
   assignment: [],
   documents: [],
@@ -136,6 +194,17 @@ function formatPhoneInput(value: string) {
   return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
 }
 
+function normalizeMoneyInput(value: string) {
+  const cleaned = value.replace(/[^0-9.]/g, "");
+  const parsed = Number.parseFloat(cleaned);
+
+  if (!Number.isFinite(parsed)) {
+    return "";
+  }
+
+  return `$${parsed.toFixed(2)}`;
+}
+
 function formatMoneyInput(value: string) {
   const cleaned = value.replace(/[^0-9.]/g, "");
   const parts = cleaned.split(".");
@@ -153,7 +222,95 @@ function formatMoneyInput(value: string) {
   return `$${dollars}`;
 }
 
+function getAutoSelectionsForEnrollmentType(enrollmentType: string) {
+  if (enrollmentType === "private_am") {
+    return {
+      modality: "f2f",
+      language: "English",
+    };
+  }
+
+  if (enrollmentType === "cyberteacher") {
+    return {
+      modality: "self_study",
+      language: "English",
+    };
+  }
+
+  if (enrollmentType === "testing") {
+    return {
+      modality: "testing",
+      language: "English",
+    };
+  }
+
+  if (enrollmentType === "group" || enrollmentType === "kids") {
+    return {
+      modality: "",
+      language: "English",
+    };
+  }
+
+  return {
+    modality: "",
+    language: "",
+  };
+}
+
+
+function getVisibleModalityOptions(values: EnrollmentFormValues) {
+  if (values.enrollmentType === "private_am") {
+    return modalityOptions.filter((option) => option.value === "f2f");
+  }
+
+  if (
+    values.enrollmentType === "group" ||
+    values.enrollmentType === "charter" ||
+    values.enrollmentType === "kids" ||
+    values.enrollmentType === "semi_private"
+  ) {
+    return modalityOptions.filter((option) =>
+      ["f2f", "online"].includes(option.value)
+    );
+  }
+
+  if (
+    values.enrollmentType === "private" ||
+    values.enrollmentType === "private_intensive"
+  ) {
+    return modalityOptions.filter((option) =>
+      ["f2f", "online", "blo"].includes(option.value)
+    );
+  }
+
+  if (values.enrollmentType === "cyberteacher") {
+    return modalityOptions.filter((option) => option.value === "self_study");
+  }
+
+  if (values.enrollmentType === "testing") {
+    return modalityOptions.filter((option) => option.value === "testing");
+  }
+
+  return modalityOptions;
+}
+
+function getSingleLanguageOption(values: EnrollmentFormValues) {
+  const options = getVisibleLanguageOptions(values);
+
+  return options.length === 1 ? options[0]?.value ?? "" : "";
+}
+
 function getVisibleLanguageOptions(values: EnrollmentFormValues) {
+  if (values.enrollmentType === "group" || values.enrollmentType === "kids") {
+    return languageOptions.filter((option) => option.value === "English");
+  }
+
+  if (values.enrollmentType === "charter") {
+    return languageOptions.filter((option) =>
+      ["English", "Spanish"].includes(option.value)
+    );
+  }
+
   if (values.modality === "blo") {
     return languageOptions;
   }
@@ -187,6 +344,7 @@ function Field({
   label,
   value,
   onChange,
+  onBlur,
   placeholder,
   helper,
   type = "text",
@@ -196,6 +354,7 @@ function Field({
   label: string;
   value: string;
   onChange: (value: string) => void;
+  onBlur?: () => void;
   placeholder?: string;
   helper?: string;
   type?: string;
@@ -212,6 +371,7 @@ function Field({
         type={type}
         value={value}
         onChange={(event) => onChange(event.target.value)}
+        onBlur={onBlur}
         placeholder={placeholder}
         className={cn(error ? "border-red-300 focus-visible:ring-red-200" : "")}
       />
@@ -311,6 +471,10 @@ function StepContent({
   draftPayload: EnrollmentDraftPayload | null;
 }>) {
   const rules = getEnrollmentRules(values);
+  const customerIdYear = values.enrollmentDate
+    ? new Date(`${values.enrollmentDate}T00:00:00`).getFullYear().toString().slice(-2)
+    : new Date().getFullYear().toString().slice(-2);
+  const customerIdPrefix = `003-120-${customerIdYear}-`;
 
   if (stepId === "student") {
     return (
@@ -354,15 +518,35 @@ function StepContent({
         </FieldRow>
 
         <FieldRow>
-          <Field
-            label="Customer ID last 5 digits"
-            required
-            value={values.customerIdLast5}
-            onChange={(value) => setField("customerIdLast5", value)}
-            placeholder="00203"
-            helper="The system will generate the full Customer ID."
-            error={errors.customerIdLast5}
-          />
+          <div className="space-y-2">
+            <Label>
+              Customer ID <span className="ml-1 text-red-600">*</span>
+            </Label>
+            <div className="flex overflow-hidden rounded-xl border border-input bg-background focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2">
+              <div className="flex min-w-[112px] shrink-0 items-center justify-center whitespace-nowrap border-r bg-slate-50 px-3 text-sm font-medium text-slate-700">
+                {customerIdPrefix}
+              </div>
+              <Input
+                value={values.customerIdLast5}
+                onChange={(event) =>
+                  setField(
+                    "customerIdLast5",
+                    event.target.value.replace(/\D/g, "").slice(0, 5)
+                  )
+                }
+                placeholder="Last 5 digits"
+                inputMode="numeric"
+                className="min-w-0 flex-1 border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+              />
+            </div>
+            {errors.customerIdLast5 ? (
+              <p className="text-xs text-red-600">{errors.customerIdLast5}</p>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                Enter only the last 5 digits. The prefix is generated automatically.
+              </p>
+            )}
+          </div>
           <Field
             label="Enrollment date"
             required
@@ -403,9 +587,42 @@ function StepContent({
             required
             value={values.enrollmentType}
             onChange={(value) => {
+              const autoSelections = getAutoSelectionsForEnrollmentType(value);
+              const nextPrivateRule = getPrivateProgramRule({
+                enrollmentType: value as EnrollmentFormValues["enrollmentType"],
+              });
+
               setField("enrollmentType", value as EnrollmentFormValues["enrollmentType"]);
-              setField("language", "");
+              setField(
+                "modality",
+                autoSelections.modality as EnrollmentFormValues["modality"]
+              );
+              setField(
+                "language",
+                autoSelections.language as EnrollmentFormValues["language"]
+              );
+
+              if (nextPrivateRule) {
+                setField("regularLessons", nextPrivateRule.regularLessons);
+                setField("noChargeLessons", nextPrivateRule.noChargeLessons);
+              } else {
+                setField("noChargeLessons", "0");
+              }
+
+              if (value === "private_am") {
+                setField("privatePace", "regular");
+              }
               setField("otherLanguage", "");
+              setField("level", isPrivateAcademicProgram({
+                enrollmentType: value as EnrollmentFormValues["enrollmentType"],
+              }) ? "" : "Pending package review");
+              setField("privateFocus", "");
+              setField("privatePace", value === "private_am" ? "regular" : "");
+              setField("privateSpecializationStatus", "");
+              setField("privateSpecializations", "");
+              setField("scheduleProgramType", "");
+              setField("preferredDays", "");
+              setField("preferredTime", "");
             }}
             error={errors.enrollmentType}
           >
@@ -422,14 +639,34 @@ function StepContent({
             required
             value={values.modality}
             onChange={(value) => {
+              const nextValues = {
+                ...values,
+                modality: value,
+                language: "",
+                otherLanguage: "",
+              };
+
               setField("modality", value as EnrollmentFormValues["modality"]);
-              setField("language", "");
+              const shouldAutoSelectEnglish =
+                (values.enrollmentType === "private" ||
+                  values.enrollmentType === "private_intensive" ||
+                  values.enrollmentType === "private_am") &&
+                (value === "f2f" || value === "online");
+
+              setField(
+                "language",
+                shouldAutoSelectEnglish
+                  ? "English"
+                  : (getSingleLanguageOption(
+                      nextValues as EnrollmentFormValues
+                    ) as EnrollmentFormValues["language"])
+              );
               setField("otherLanguage", "");
             }}
             error={errors.modality}
           >
             <option value="">Select modality</option>
-            {modalityOptions.map((option) => (
+            {getVisibleModalityOptions(values).map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
               </option>
@@ -458,14 +695,114 @@ function StepContent({
               </option>
             ))}
           </NativeSelect>
-          <Field
-            label="Program package / level range"
-            required
-            value={values.level ?? ""}
-            onChange={(value) => setField("level", value)}
-            placeholder="Select or enter package / level range"
-            error={errors.level}
-          />
+          {isPrivateAcademicProgram(values) ? (
+            <>
+              <NativeSelect
+                label="Level"
+                required
+                value={values.level === "Pending package review" ? "" : values.level ?? ""}
+                onChange={(value) => setField("level", value)}
+                error={errors.level}
+              >
+                <option value="" disabled>
+                  Select level
+                </option>
+                {privateLevelOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </NativeSelect>
+
+              <NativeSelect
+                label="Focus"
+                required
+                value={values.privateFocus ?? ""}
+                onChange={(value) => setField("privateFocus", value)}
+                helper="Select Social or Business for the private program."
+              >
+                <option value="" disabled>
+                  Select focus
+                </option>
+                {privateFocusOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </NativeSelect>
+
+              <NativeSelect
+                label="Pace"
+                required
+                value={values.enrollmentType === "private_am" ? "regular" : values.privatePace ?? ""}
+                onChange={(value) => setField("privatePace", value)}
+                helper={
+                  values.enrollmentType === "private_am"
+                    ? "Private AM is Regular only."
+                    : "Select Regular or Express."
+                }
+              >
+                <option value="" disabled>
+                  Select pace
+                </option>
+                {getVisiblePrivatePaceOptions(values).map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </NativeSelect>
+
+              {values.enrollmentType === "private_am" ? (
+                <div className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-xs text-blue-900">
+                  Private AM does not include review units (10, 20, 30, 40).
+                </div>
+              ) : null}
+
+              {values.privatePace === "express" ? (
+                <>
+                  <NativeSelect
+                    label="Specialization status"
+                    value={values.privateSpecializationStatus ?? ""}
+                    onChange={(value) => {
+                      setField("privateSpecializationStatus", value);
+                      if (value !== "selected") {
+                        setField("privateSpecializations", "");
+                      }
+                    }}
+                    helper="Express students often select specializations after the program has started."
+                  >
+                    <option value="" disabled>
+                      Select specialization status
+                    </option>
+                    {privateSpecializationStatusOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </NativeSelect>
+
+                  {values.privateSpecializationStatus === "selected" ? (
+                    <Field
+                      label="Selected specializations"
+                      value={values.privateSpecializations ?? ""}
+                      onChange={(value) => setField("privateSpecializations", value)}
+                      placeholder="Enter selected specializations"
+                      helper="Temporary free-text field until the official specialization catalog is connected."
+                    />
+                  ) : null}
+                </>
+              ) : null}
+            </>
+          ) : (
+            <Field
+              label="Program package / level range"
+              value={values.level ?? ""}
+              onChange={(value) => setField("level", value)}
+              placeholder="Pending package review"
+              helper="Temporary field. Program packages will be connected to the official package catalog later."
+              error={errors.level}
+            />
+          )}
         </FieldRow>
 
         {values.language === "Other" ? (
@@ -493,6 +830,9 @@ function StepContent({
             required
             value={values.lessonRate ?? ""}
             onChange={(value) => setField("lessonRate", formatMoneyInput(value))}
+            onBlur={() =>
+              setField("lessonRate", normalizeMoneyInput(values.lessonRate ?? ""))
+            }
             placeholder="Enter lesson rate"
             error={errors.lessonRate}
           />
@@ -508,68 +848,198 @@ function StepContent({
           />
         ) : null}
 
-        <div className="rounded-2xl border bg-blue-50 p-4 text-sm text-blue-900">
-          Current rule preview:{" "}
-          <span className="font-semibold">
-            {rules.requiresPrivateCase
-              ? "Private Case will be required."
-              : "TBO assignment will be attempted."}
-          </span>
-          <p className="mt-2 text-xs">
-            No-charge lessons only apply to Private Intensive. For regular private,
-            group, semi-private, kids, summer, CyberTeacher, and testing enrollments,
-            no-charge lessons remain 0.
-          </p>
-        </div>
+        {/*
+          TODO: Add Special approvals workflow with the official package catalog.
+          Pending items:
+          - Special no-charge lesson exceptions
+          - Custom pricing exceptions
+          - Non-standard program arrangements
+          - Manager approval request routing
+        */}
       </div>
     );
   }
 
   if (stepId === "schedule") {
+    const scheduleProgramOptions = getScheduleProgramOptions(values);
+    const dayOptions = getDayOptions(values);
+    const timeOptions = getTimeOptions(values);
+    const privateEnrollment = isPrivateEnrollment(values);
+    const flexiblePrivateSchedule =
+      privateEnrollment && values.scheduleMode === "flexible";
+    const fixedPrivateSchedule =
+      privateEnrollment && values.scheduleMode === "fixed";
+
     return (
       <div className="space-y-5">
         <FieldRow>
-          <Field
-            label="Preferred days"
-            value={values.preferredDays ?? ""}
-            onChange={(value) => setField("preferredDays", value)}
-            placeholder="Example: Tuesday / Thursday"
-          />
-          <Field
-            label="Preferred time"
-            value={values.preferredTime ?? ""}
-            onChange={(value) => setField("preferredTime", value)}
-            placeholder="Example: 6:45 PM - 9:00 PM"
-          />
+          <NativeSelect
+            label="Schedule program"
+            required
+            value={values.scheduleProgramType ?? ""}
+            onChange={(value) => {
+              setField(
+                "scheduleProgramType",
+                value as EnrollmentFormValues["scheduleProgramType"]
+              );
+              setField("preferredDays", "");
+              setField("preferredTime", "");
+              setField("scheduleMode", privateEnrollment ? "fixed" : "");
+              setField("privateScheduleNotes", "");
+            }}
+            error={errors.scheduleProgramType}
+          >
+            <option value="">Select schedule program</option>
+            {scheduleProgramOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </NativeSelect>
+
+          {privateEnrollment ? (
+            <NativeSelect
+              label="Schedule mode"
+              required
+              value={values.scheduleMode ?? ""}
+              onChange={(value) => {
+                setField(
+                  "scheduleMode",
+                  value as EnrollmentFormValues["scheduleMode"]
+                );
+                setField("preferredDays", "");
+                setField("preferredTime", "");
+                setField("privateScheduleNotes", "");
+              }}
+              error={errors.scheduleMode}
+            >
+              <option value="">Select schedule mode</option>
+              {privateScheduleModeOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </NativeSelect>
+          ) : null}
         </FieldRow>
+
+        {scheduleProgramOptions.length === 0 ? (
+          <div className="rounded-2xl border bg-amber-50 p-4 text-sm text-amber-900">
+            Select an enrollment type in the Program step first so the schedule
+            options can be filtered correctly.
+          </div>
+        ) : null}
+
+        {!flexiblePrivateSchedule ? (
+          <FieldRow>
+            <NativeSelect
+              label="Preferred days"
+              required
+              value={values.preferredDays ?? ""}
+              onChange={(value) => {
+                setField(
+                  "preferredDays",
+                  value as EnrollmentFormValues["preferredDays"]
+                );
+                setField("preferredTime", "");
+              }}
+              error={errors.preferredDays}
+            >
+              <option value="">Select preferred days</option>
+              {dayOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </NativeSelect>
+
+            {privateEnrollment ? (
+              <Field
+                label="Preferred time"
+                required
+                value={values.preferredTime ?? ""}
+                onChange={(value) => setField("preferredTime", value)}
+                placeholder="Enter preferred time"
+                error={errors.preferredTime}
+              />
+            ) : (
+              <NativeSelect
+                label="Preferred time"
+                required
+                value={values.preferredTime ?? ""}
+                onChange={(value) =>
+                  setField(
+                    "preferredTime",
+                    value as EnrollmentFormValues["preferredTime"]
+                  )
+                }
+                error={errors.preferredTime}
+              >
+                <option value="">Select preferred time</option>
+                {timeOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </NativeSelect>
+            )}
+          </FieldRow>
+        ) : null}
+
+        {fixedPrivateSchedule ? (
+          <div className="rounded-2xl border bg-blue-50 p-4 text-sm text-blue-900">
+            Fixed private schedules should include the agreed regular days and
+            preferred time. Multiple-day private selection will be refined in the
+            next pass.
+          </div>
+        ) : null}
+
+        {flexiblePrivateSchedule ? (
+          <Field
+            label="Flexible schedule notes"
+            required
+            value={values.privateScheduleNotes ?? ""}
+            onChange={(value) => setField("privateScheduleNotes", value)}
+            placeholder="Describe flexible schedule arrangement"
+            error={errors.privateScheduleNotes}
+          />
+        ) : null}
 
         <FieldRow>
           <Field
             label="Tentative start date"
+            required
             value={values.tentativeStartDate ?? ""}
             onChange={(value) => setField("tentativeStartDate", value)}
             type="date"
+            error={errors.tentativeStartDate}
           />
           <Field
             label="Confirmed start date"
+            required
             value={values.confirmedStartDate ?? ""}
             onChange={(value) => setField("confirmedStartDate", value)}
             type="date"
+            error={errors.confirmedStartDate}
           />
         </FieldRow>
 
         <FieldRow>
           <Field
             label="Contract start date"
+            required
             value={values.contractStartDate ?? ""}
             onChange={(value) => setField("contractStartDate", value)}
             type="date"
+            error={errors.contractStartDate}
           />
           <Field
             label="Contract expiration date"
+            required
             value={values.contractExpirationDate ?? ""}
             onChange={(value) => setField("contractExpirationDate", value)}
             type="date"
+            error={errors.contractExpirationDate}
           />
         </FieldRow>
       </div>
