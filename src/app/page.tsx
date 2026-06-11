@@ -1,11 +1,11 @@
-import { ArrowRight, FilePlus2, FolderKanban, UsersRound } from "lucide-react";
+import { ArrowRight, FilePlus2, FolderKanban, LayoutDashboard, UsersRound } from "lucide-react";
 import Link from "next/link";
 
-import { Badge } from "@/components/ui/badge";
+import { PageHeader } from "@/components/layout/page-header";
+import { PageShell } from "@/components/layout/page-shell";
 import { Button } from "@/components/ui/button";
 import {
   Card,
-  CardAction,
   CardContent,
   CardDescription,
   CardHeader,
@@ -61,36 +61,28 @@ const focusCards = [
 
 export default function DashboardPage() {
   return (
-    <div className="space-y-6">
-      <section className="rounded-3xl border border-blue-100 bg-gradient-to-br from-blue-700 to-slate-900 p-6 text-white shadow-sm">
-        <div className="max-w-3xl">
-          <Badge className="bg-white/15 text-white hover:bg-white/20">
-            MVP Foundation
-          </Badge>
-          <h2 className="mt-4 text-3xl font-semibold tracking-tight">
-            Berlitz Operations Platform
-          </h2>
-          <p className="mt-3 text-sm leading-6 text-blue-50">
-            Centralized enrollment operations for Create Enrollment, automatic TBO assignment,
-            private cases, document checklists, requests, sales reports, and EPED monitoring.
-          </p>
-          <div className="mt-6">
-            <Button asChild className="rounded-xl bg-white text-blue-800 hover:bg-blue-50">
-              <Link href="/create-enrollment">
-                Start Create Enrollment
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Link>
-            </Button>
-          </div>
-        </div>
-      </section>
+    <PageShell>
+      <PageHeader
+        badge=""
+        title="Operations Platform"
+        subtitle="Centralized enrollment operations for the Berlitz Puerto Rico team."
+        description="Centralized enrollment operations for Create Enrollment, automatic TBO assignment, private cases, document checklists, requests, sales reports, and EPED monitoring."
+        icon={LayoutDashboard}
+        actionLabel="Start Create Enrollment"
+        actionHref="/create-enrollment"
+      />
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {metrics.map((metric) => (
-          <Card key={metric.label} className="rounded-2xl">
-            <CardHeader>
+          <Card
+            key={metric.label}
+            className="rounded-[1.5rem] border-slate-200/80 bg-white shadow-sm"
+          >
+            <CardHeader className="pb-3">
               <CardDescription>{metric.label}</CardDescription>
-              <CardTitle className="text-3xl">{metric.value}</CardTitle>
+              <CardTitle className="text-3xl tracking-tight text-slate-950">
+                {metric.value}
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground">{metric.detail}</p>
@@ -101,25 +93,43 @@ export default function DashboardPage() {
 
       <section className="grid gap-4 lg:grid-cols-3">
         {focusCards.map((card) => (
-          <Card key={card.title} className="rounded-2xl">
-            <CardHeader>
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-blue-50 text-blue-700">
-                <card.icon className="h-5 w-5" />
-              </div>
-              <CardTitle>{card.title}</CardTitle>
-              <CardDescription>{card.description}</CardDescription>
-              <CardAction>
-                <Button asChild variant="ghost" size="sm">
+          <Card
+            key={card.title}
+            className="group rounded-[1.5rem] border-slate-200/80 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+          >
+            <CardContent className="p-6">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex min-w-0 items-start gap-4">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#0057B8]/10 text-[#0057B8]">
+                    <card.icon className="h-5 w-5" />
+                  </div>
+
+                  <div className="min-w-0 space-y-2">
+                    <h3 className="text-xl font-semibold tracking-tight text-slate-950">
+                      {card.title}
+                    </h3>
+                    <p className="max-w-md text-sm leading-6 text-muted-foreground">
+                      {card.description}
+                    </p>
+                  </div>
+                </div>
+
+                <Button
+                  asChild
+                  variant="ghost"
+                  size="sm"
+                  className="shrink-0 rounded-xl text-[#004899] hover:bg-[#0057B8]/10 hover:text-[#004899]"
+                >
                   <Link href={card.href}>
                     Open
                     <ArrowRight className="ml-2 h-4 w-4" />
                   </Link>
                 </Button>
-              </CardAction>
-            </CardHeader>
+              </div>
+            </CardContent>
           </Card>
         ))}
       </section>
-    </div>
+    </PageShell>
   );
 }

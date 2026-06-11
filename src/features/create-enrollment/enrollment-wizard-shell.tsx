@@ -6,6 +6,7 @@ import {
   ArrowRight,
   BadgeCheck,
   CalendarClock,
+  Check,
   ClipboardCheck,
   CreditCard,
   FileText,
@@ -1251,6 +1252,11 @@ export function EnrollmentWizardShell() {
     return `Step ${currentStepIndex + 1} of ${wizardSteps.length}`;
   }, [currentStepIndex]);
 
+  const completedStepsCount = currentStepIndex;
+  const progressPercentage = Math.round(
+    ((currentStepIndex + 1) / wizardSteps.length) * 100
+  );
+
   const setField = <T extends keyof EnrollmentFormValues>(
     field: T,
     value: EnrollmentFormValues[T]
@@ -1343,130 +1349,190 @@ export function EnrollmentWizardShell() {
   };
 
   return (
-    <div className="grid gap-6 xl:grid-cols-[320px_1fr]">
-      <Card className="hidden h-fit rounded-2xl xl:block">
-        <CardHeader>
-          <CardTitle>Enrollment Steps</CardTitle>
-          <CardDescription>
-            Guided workflow for creating a complete enrollment.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          {wizardSteps.map((step, index) => {
-            const isActive = index === currentStepIndex;
-            const isComplete = index < currentStepIndex;
-            const isLocked = index > maxUnlockedStepIndex;
+    <div className="rounded-[1.75rem] bg-slate-50/80 p-4 sm:p-5">
+      <div className="grid gap-5 xl:grid-cols-[340px_1fr]">
+        <Card className="hidden h-fit rounded-[1.75rem] border-slate-200/80 bg-white/95 shadow-sm xl:block">
+          <CardHeader className="pb-4">
+            <div className="flex items-center gap-2">
+              <div className="h-2.5 w-2.5 rounded-full bg-[#0057B8]" />
+              <CardTitle className="text-lg">Enrollment Steps</CardTitle>
+            </div>
+            <CardDescription className="leading-relaxed">
+              Guided workflow for creating a complete enrollment.
+            </CardDescription>
+          </CardHeader>
 
-            return (
-              <button
-                key={step.id}
-                type="button"
-                onClick={() => {
-                  if (!isLocked) {
-                    setCurrentStepIndex(index);
-                  }
-                }}
-                disabled={isLocked}
-                className={cn(
-                  "flex w-full items-start gap-3 rounded-2xl border p-3 text-left transition",
-                  isActive
-                    ? "border-blue-200 bg-blue-50 text-blue-950"
-                    : "border-transparent hover:border-slate-200 hover:bg-slate-50"
-                )}
-              >
-                <div
+          <CardContent className="space-y-2.5">
+            {wizardSteps.map((step, index) => {
+              const isActive = index === currentStepIndex;
+              const isComplete = index < currentStepIndex;
+              const isLocked = index > maxUnlockedStepIndex;
+
+              return (
+                <button
+                  key={step.id}
+                  type="button"
+                  onClick={() => {
+                    if (!isLocked) {
+                      setCurrentStepIndex(index);
+                    }
+                  }}
+                  disabled={isLocked}
                   className={cn(
-                    "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl",
-                    isActive || isComplete
-                      ? "bg-blue-700 text-white"
-                      : "bg-slate-100 text-slate-500"
+                    "group flex w-full items-start gap-3 rounded-2xl border p-3.5 text-left transition-all",
+                    isActive
+                      ? "border-[#0057B8]/20 bg-[#0057B8]/[0.08] text-slate-950 shadow-sm ring-1 ring-[#0057B8]/10"
+                      : isComplete
+                        ? "border-emerald-100 bg-emerald-50/70 text-slate-900"
+                        : "border-transparent text-slate-600 hover:border-slate-200 hover:bg-slate-50",
+                    isLocked ? "cursor-not-allowed opacity-55" : "cursor-pointer"
                   )}
                 >
-                  <step.icon className="h-4 w-4" />
-                </div>
+                  <div
+                    className={cn(
+                      "flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl transition",
+                      isComplete
+                        ? "bg-emerald-100 text-emerald-700"
+                        : isActive
+                          ? "bg-[#0057B8] text-white shadow-sm"
+                          : "bg-slate-100 text-slate-500 group-hover:bg-slate-200"
+                    )}
+                  >
+                    {isComplete ? (
+                      <Check className="h-4 w-4" />
+                    ) : (
+                      <step.icon className="h-4 w-4" />
+                    )}
+                  </div>
+
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between gap-3">
+                      <p
+                        className={cn(
+                          "text-sm font-semibold",
+                          isActive ? "text-[#004899]" : "text-slate-900"
+                        )}
+                      >
+                        {step.title}
+                      </p>
+                      <span
+                        className={cn(
+                          "rounded-full px-2 py-0.5 text-[11px] font-medium",
+                          isComplete
+                            ? "bg-emerald-100 text-emerald-700"
+                            : isActive
+                              ? "bg-[#0057B8] text-white"
+                              : "bg-slate-100 text-slate-500"
+                        )}
+                      >
+                        {isComplete ? "Done" : index + 1}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                      {step.description}
+                    </p>
+                  </div>
+                </button>
+              );
+            })}
+          </CardContent>
+        </Card>
+
+        <Card className="overflow-hidden rounded-[1.75rem] border-slate-200/80 bg-white shadow-sm">
+          <CardHeader className="border-b border-slate-100 bg-white px-6 py-5">
+            <div className="space-y-5">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                 <div>
-                  <p className="text-sm font-semibold">{step.title}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {step.description}
-                  </p>
+                  <Badge className="rounded-full bg-[#0057B8]/10 px-3 py-1 text-[#004899] hover:bg-[#0057B8]/10">
+                    {progressLabel}
+                  </Badge>
+                  <CardTitle className="mt-3 text-2xl tracking-tight text-slate-950">
+                    {currentStep.title}
+                  </CardTitle>
+                  <CardDescription className="mt-1.5 leading-relaxed">
+                    {currentStep.description}
+                  </CardDescription>
                 </div>
-              </button>
-            );
-          })}
-        </CardContent>
-      </Card>
 
-      <Card className="rounded-2xl">
-        <CardHeader className="border-b">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <Badge variant="secondary">{progressLabel}</Badge>
-              <CardTitle className="mt-3 text-2xl">{currentStep.title}</CardTitle>
-              <CardDescription className="mt-1">
-                {currentStep.description}
-              </CardDescription>
+                <Badge className="w-fit rounded-full bg-[#0057B8] px-3 py-1 text-white hover:bg-[#004899]">
+                  Create Enrollment
+                </Badge>
+              </div>
+
+              <div className="space-y-2.5">
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <span>
+                    {completedStepsCount} completed · {wizardSteps.length - completedStepsCount} remaining
+                  </span>
+                  <span>{progressPercentage}%</span>
+                </div>
+                <div className="h-2.5 overflow-hidden rounded-full bg-slate-100">
+                  <div
+                    className="h-full rounded-full bg-[#0057B8] transition-all duration-300"
+                    style={{ width: `${progressPercentage}%` }}
+                  />
+                </div>
+              </div>
             </div>
+          </CardHeader>
 
-            <Badge className="w-fit bg-blue-700">Create Enrollment</Badge>
-          </div>
-        </CardHeader>
+          <CardContent className="space-y-5 px-6 py-5">
+            <StepContent
+              stepId={currentStep.id}
+              values={values}
+              setField={setField}
+              errors={errors}
+              customerIdPreview={customerIdPreview}
+              draftPayload={draftPayload}
+            />
 
-        <CardContent className="space-y-6 pt-6">
-          <StepContent
-            stepId={currentStep.id}
-            values={values}
-            setField={setField}
-            errors={errors}
-            customerIdPreview={customerIdPreview}
-            draftPayload={draftPayload}
-          />
+            {draftMessage ? (
+              <div
+                className={cn(
+                  "rounded-2xl border p-4 text-sm",
+                  Object.keys(errors).length > 0
+                    ? "border-red-200 bg-red-50 text-red-700"
+                    : "border-emerald-200 bg-emerald-50 text-emerald-700"
+                )}
+              >
+                {draftMessage}
+              </div>
+            ) : null}
 
-          {draftMessage ? (
-            <div
-              className={cn(
-                "rounded-2xl border p-4 text-sm",
-                Object.keys(errors).length > 0
-                  ? "border-red-200 bg-red-50 text-red-700"
-                  : "border-green-200 bg-green-50 text-green-700"
+            <div className="flex items-center justify-between border-t border-slate-100 pt-6">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={goBack}
+                disabled={currentStepIndex === 0}
+                className="rounded-xl border-slate-200 bg-white"
+              >
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Back
+              </Button>
+
+              {currentStepIndex === wizardSteps.length - 1 ? (
+                <Button
+                  type="button"
+                  onClick={validateDraft}
+                  className="rounded-xl bg-[#0057B8] shadow-sm hover:bg-[#004899]"
+                >
+                  Validate Enrollment Draft
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  onClick={goNext}
+                  className="rounded-xl bg-[#0057B8] shadow-sm hover:bg-[#004899]"
+                >
+                  Confirm & Continue
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
               )}
-            >
-              {draftMessage}
             </div>
-          ) : null}
-
-          <div className="flex items-center justify-between border-t pt-6">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={goBack}
-              disabled={currentStepIndex === 0}
-              className="rounded-xl"
-            >
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Back
-            </Button>
-
-            {currentStepIndex === wizardSteps.length - 1 ? (
-              <Button
-                type="button"
-                onClick={validateDraft}
-                className="rounded-xl bg-blue-700 hover:bg-blue-800"
-              >
-                Validate Enrollment Draft
-              </Button>
-            ) : (
-              <Button
-                type="button"
-                onClick={goNext}
-                className="rounded-xl bg-blue-700 hover:bg-blue-800"
-              >
-                Confirm & Continue
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
