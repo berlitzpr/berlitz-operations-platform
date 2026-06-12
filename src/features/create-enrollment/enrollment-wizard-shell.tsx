@@ -101,6 +101,17 @@ const wizardSteps: WizardStep[] = [
 
 type ValidationErrors = Partial<Record<keyof EnrollmentFormValues, string>>;
 
+const fieldLabelClassName = "text-sm font-semibold text-slate-800";
+const fieldControlClassName =
+  "h-11 rounded-2xl border-slate-200 bg-white px-4 text-sm shadow-sm transition placeholder:text-slate-400 focus-visible:border-[#0057B8] focus-visible:ring-[#0057B8]/20";
+const fieldSelectClassName =
+  "h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-950 shadow-sm transition focus:border-[#0057B8] focus:outline-none focus:ring-4 focus:ring-[#0057B8]/10 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-500";
+const fieldTextareaClassName =
+  "min-h-28 rounded-2xl border-slate-200 bg-white px-4 py-3 text-sm shadow-sm transition placeholder:text-slate-400 focus-visible:border-[#0057B8] focus-visible:ring-[#0057B8]/20";
+const helperTextClassName = "text-xs leading-5 text-muted-foreground";
+const errorTextClassName = "text-xs font-medium leading-5 text-red-600";
+const footerButtonClassName = "h-11 rounded-2xl px-5 font-semibold";
+
 const privateLevelOptions = Array.from({ length: 10 }, (_, index) => {
   const level = String(index + 1);
 
@@ -364,7 +375,7 @@ function Field({
 }>) {
   return (
     <div className="space-y-2">
-      <Label>
+      <Label className={fieldLabelClassName}>
         {label}
         {required ? <span className="ml-1 text-red-600">*</span> : null}
       </Label>
@@ -374,11 +385,11 @@ function Field({
         onChange={(event) => onChange(event.target.value)}
         onBlur={onBlur}
         placeholder={placeholder}
-        className={cn(error ? "border-red-300 focus-visible:ring-red-200" : "")}
+        className={cn(fieldControlClassName, error && "border-red-500 focus-visible:border-red-500 focus-visible:ring-red-500/20")}
       />
-      {error ? <p className="text-xs text-red-600">{error}</p> : null}
+      {error ? <p className={errorTextClassName}>{error}</p> : null}
       {!error && helper ? (
-        <p className="text-xs text-muted-foreground">{helper}</p>
+        <p className={helperTextClassName}>{helper}</p>
       ) : null}
     </div>
   );
@@ -403,7 +414,7 @@ function NativeSelect({
 }>) {
   return (
     <div className="space-y-2">
-      <Label>
+      <Label className={fieldLabelClassName}>
         {label}
         {required ? <span className="ml-1 text-red-600">*</span> : null}
       </Label>
@@ -411,16 +422,16 @@ function NativeSelect({
         value={value}
         onChange={(event) => onChange(event.target.value)}
         className={cn(
-          "flex h-10 w-full rounded-xl border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+          fieldSelectClassName,
           value === "" ? "text-muted-foreground" : "",
-          error ? "border-red-300 focus-visible:ring-red-200" : ""
+          error && "border-red-500 focus:border-red-500 focus:ring-red-500/20"
         )}
       >
         {children}
       </select>
-      {error ? <p className="text-xs text-red-600">{error}</p> : null}
+      {error ? <p className={errorTextClassName}>{error}</p> : null}
       {!error && helper ? (
-        <p className="text-xs text-muted-foreground">{helper}</p>
+        <p className={helperTextClassName}>{helper}</p>
       ) : null}
     </div>
   );
@@ -568,11 +579,12 @@ function StepContent({
         </div>
 
         <div className="space-y-2">
-          <Label>Internal notes</Label>
+          <Label className={fieldLabelClassName}>Internal notes</Label>
           <Textarea
             value={values.notes ?? ""}
             onChange={(event) => setField("notes", event.target.value)}
             placeholder="Address, special notes, company details, or internal comments."
+            className={fieldTextareaClassName}
           />
         </div>
       </div>
@@ -1546,7 +1558,7 @@ export function EnrollmentWizardShell() {
                     variant="outline"
                     onClick={goBack}
                     disabled={currentStepIndex === 0}
-                    className="h-12 rounded-xl border-slate-200 bg-white px-6 text-base"
+                    className={cn(footerButtonClassName, "h-12 border-slate-200 bg-white px-6 text-base")}
                   >
                     <ArrowLeft className="mr-2 h-4 w-4" />
                     Back
@@ -1556,7 +1568,7 @@ export function EnrollmentWizardShell() {
                     <Button
                       type="button"
                       onClick={validateDraft}
-                      className="h-12 rounded-xl bg-[#0057B8] px-6 text-base shadow-sm hover:bg-[#004899]"
+                      className={cn(footerButtonClassName, "h-12 bg-[#0057B8] px-6 text-base shadow-sm hover:bg-[#004899]")}
                     >
                       Validate Enrollment Draft
                     </Button>
@@ -1564,7 +1576,7 @@ export function EnrollmentWizardShell() {
                     <Button
                       type="button"
                       onClick={goNext}
-                      className="h-12 rounded-xl bg-[#0057B8] px-6 text-base shadow-sm hover:bg-[#004899]"
+                      className={cn(footerButtonClassName, "h-12 bg-[#0057B8] px-6 text-base shadow-sm hover:bg-[#004899]")}
                     >
                       Confirm & Continue
                       <ArrowRight className="ml-2 h-4 w-4" />
