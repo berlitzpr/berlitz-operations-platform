@@ -48,8 +48,44 @@ export const materialCatalog: MaterialCatalogItem[] = [
     eligibility: "current_or_former_student_only",
     active: true,
   },
+  {
+    id: "kids_look_and_see_1_bundle",
+    name: "Berlitz Look & See 1 SB/OP Code + WB",
+    category: "kids",
+    price: 65,
+    eligibility: "current_or_former_student_only",
+    active: true,
+  },
+  {
+    id: "kids_berlitz_look_1_bundle",
+    name: "Berlitz Look 1 SB + OP Sticker + WB Bundle",
+    category: "kids",
+    price: 65,
+    eligibility: "current_or_former_student_only",
+    active: true,
+  },
+  {
+    id: "kids_time_zones_3e_book_1_bundle",
+    name: "Time Zones Berlitz 3e Student Book 1 + Workbook 1 + Online Practice + Student's eBook Bundle",
+    category: "kids",
+    price: 65,
+    eligibility: "current_or_former_student_only",
+    active: true,
+  },
+  {
+    id: "kids_time_zones_3e_book_2_bundle",
+    name: "Time Zones Berlitz 3e Student Book 2 + Workbook 2 + Online Practice + Student's eBook Bundle",
+    category: "kids",
+    price: 65,
+    eligibility: "current_or_former_student_only",
+    active: true,
+  },
 ];
 
 export function getActiveMaterialItems() {
   return materialCatalog.filter((item) => item.active);
+}
+
+export function getMaterialItemsByCategory(category: MaterialCatalogItem["category"]) {
+  return materialCatalog.filter((item) => item.active && item.category === category);
 }
