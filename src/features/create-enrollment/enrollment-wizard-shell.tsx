@@ -526,16 +526,17 @@ function StepContent({
             value={values.mobilePhone ?? ""}
             onChange={(value) => setField("mobilePhone", formatPhoneInput(value))}
             placeholder="787-000-0000"
+            error={errors.mobilePhone}
           />
         </FieldRow>
 
         <FieldRow>
           <div className="space-y-2">
-            <Label>
+            <Label className={fieldLabelClassName}>
               Customer ID <span className="ml-1 text-red-600">*</span>
             </Label>
-            <div className="flex overflow-hidden rounded-xl border border-input bg-background focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2">
-              <div className="flex min-w-[112px] shrink-0 items-center justify-center whitespace-nowrap border-r bg-slate-50 px-3 text-sm font-medium text-slate-700">
+            <div className="flex h-11 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition focus-within:border-[#0057B8] focus-within:ring-4 focus-within:ring-[#0057B8]/10">
+              <div className="flex min-w-[128px] shrink-0 items-center justify-center whitespace-nowrap border-r border-slate-200 bg-slate-50 px-3 text-sm font-semibold text-slate-700">
                 {customerIdPrefix}
               </div>
               <Input
@@ -548,14 +549,14 @@ function StepContent({
                 }
                 placeholder="Last 5 digits"
                 inputMode="numeric"
-                className="min-w-0 flex-1 border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+                className="min-w-0 flex-1 border-0 bg-white px-4 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
               />
             </div>
             {errors.customerIdLast5 ? (
-              <p className="text-xs text-red-600">{errors.customerIdLast5}</p>
+              <p className={errorTextClassName}>{errors.customerIdLast5}</p>
             ) : (
-              <p className="text-xs text-muted-foreground">
-                Enter only the last 5 digits. The prefix is generated automatically.
+              <p className={helperTextClassName}>
+                Enter only the last 5 digits. The Puerto Rico / Hato Rey prefix is generated automatically.
               </p>
             )}
           </div>
@@ -579,11 +580,11 @@ function StepContent({
         </div>
 
         <div className="space-y-2">
-          <Label className={fieldLabelClassName}>Internal notes</Label>
+          <Label className={fieldLabelClassName}>Internal notes / special instructions</Label>
           <Textarea
             value={values.notes ?? ""}
             onChange={(event) => setField("notes", event.target.value)}
-            placeholder="Address, special notes, company details, or internal comments."
+            placeholder="Address, parent/company notes, sale context, or internal comments for Customer Service."
             className={fieldTextareaClassName}
           />
         </div>
@@ -637,6 +638,7 @@ function StepContent({
               setField("preferredDays", "");
               setField("preferredTime", "");
             }}
+            helper="Choose the program category sold. This controls schedule, documents, assignment, and private case rules."
             error={errors.enrollmentType}
           >
             <option value="">Select enrollment type</option>
@@ -676,6 +678,7 @@ function StepContent({
               );
               setField("otherLanguage", "");
             }}
+            helper="Available modalities are filtered by enrollment type."
             error={errors.modality}
           >
             <option value="">Select modality</option>
@@ -699,6 +702,7 @@ function StepContent({
                 setField("otherLanguage", "");
               }
             }}
+            helper="Language may be auto-filled for standard English programs."
             error={errors.language}
           >
             <option value="">Select language</option>
@@ -715,6 +719,7 @@ function StepContent({
                 required
                 value={values.level === "Pending package review" ? "" : values.level ?? ""}
                 onChange={(value) => setField("level", value)}
+                helper="Private academic programs use levels 1–10."
                 error={errors.level}
               >
                 <option value="" disabled>
@@ -812,7 +817,7 @@ function StepContent({
               value={values.level ?? ""}
               onChange={(value) => setField("level", value)}
               placeholder="Pending package review"
-              helper="Temporary field. Program packages will be connected to the official package catalog later."
+              helper="Temporary field until the official package catalog is connected."
               error={errors.level}
             />
           )}
@@ -836,6 +841,7 @@ function StepContent({
             value={values.regularLessons ?? ""}
             onChange={(value) => setField("regularLessons", value)}
             placeholder="Enter regular lessons"
+            helper="For private programs, this may auto-fill from the selected private package."
             error={errors.regularLessons}
           />
           <Field
@@ -847,6 +853,7 @@ function StepContent({
               setField("lessonRate", normalizeMoneyInput(values.lessonRate ?? ""))
             }
             placeholder="Enter lesson rate"
+            helper="Use the approved current rate for the selected program/package."
             error={errors.lessonRate}
           />
         </FieldRow>
