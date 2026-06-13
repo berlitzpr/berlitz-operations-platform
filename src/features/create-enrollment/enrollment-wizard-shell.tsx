@@ -44,6 +44,7 @@ import {
   buildEnrollmentDraftPayload,
   type EnrollmentDraftPayload,
 } from "./enrollment-draft-payload";
+import type { EnrollmentPath } from "./program-package-catalog";
 import { getPrivateProgramRule } from "./private-program-rules";
 import {
   getDayOptions,
@@ -61,6 +62,12 @@ type WizardStep = {
 };
 
 const wizardSteps: WizardStep[] = [
+  {
+    id: "path",
+    title: "Enrollment Path",
+    description: "Choose the workflow before entering enrollment details.",
+    icon: BadgeCheck,
+  },
   {
     id: "student",
     title: "Student Info",
@@ -96,6 +103,81 @@ const wizardSteps: WizardStep[] = [
     title: "Documents",
     description: "Required enrollment documents and checklist preview.",
     icon: ClipboardCheck,
+  },
+];
+
+type EnrollmentPathOption = {
+  id: EnrollmentPath;
+  title: string;
+  eyebrow: string;
+  description: string;
+  icon: LucideIcon;
+  recommendedEnrollmentType?: EnrollmentFormValues["enrollmentType"];
+  highlights: string[];
+};
+
+const enrollmentPathOptions: EnrollmentPathOption[] = [
+  {
+    id: "group",
+    title: "Group Programs",
+    eyebrow: "G1 / TB / G3",
+    description: "Use for adult groups, True Beginner, kids groups, summer, and winter group programs.",
+    icon: UsersRound,
+    recommendedEnrollmentType: "group",
+    highlights: ["TBO assignment", "Group schedule", "Headcount rules"],
+  },
+  {
+    id: "semi_private",
+    title: "Semi-private",
+    eyebrow: "P2",
+    description: "Use for regular semi-private groups with 3–4 students.",
+    icon: UsersRound,
+    recommendedEnrollmentType: "semi_private",
+    highlights: ["P2 pricing", "Small group schedule", "3–4 students"],
+  },
+  {
+    id: "private",
+    title: "Private Programs",
+    eyebrow: "P1",
+    description: "Use for private premium, intensive, AM only, express, a la carte, and kids private.",
+    icon: UserRound,
+    recommendedEnrollmentType: "private",
+    highlights: ["Private Case", "Flexible or fixed schedule", "P1 catalog"],
+  },
+  {
+    id: "cyberteacher_phone",
+    title: "Digital / License Programs",
+    eyebrow: "PP1 / FLEX",
+    description: "Use for CyberTeacher with Phone Lessons or Flex license enrollments.",
+    icon: FileText,
+    recommendedEnrollmentType: "cyberteacher_phone",
+    highlights: ["License duration", "Activation notes", "No class schedule"],
+  },
+  {
+    id: "testing",
+    title: "Testing Services",
+    eyebrow: "TEST",
+    description: "Use for BTL/BTR, SOPI, WPE, AI proctoring, and score report services.",
+    icon: ClipboardCheck,
+    recommendedEnrollmentType: "testing",
+    highlights: ["Test type", "Language/rating", "Quantity and add-ons"],
+  },
+  {
+    id: "material_sale",
+    title: "Material Sale / Renewal",
+    eyebrow: "Materials",
+    description: "Use for stand-alone material sales for current or former Berlitz students.",
+    icon: CreditCard,
+    highlights: ["Eligibility check", "Material catalog", "No enrollment schedule"],
+  },
+  {
+    id: "charter",
+    title: "Corporate / Charter",
+    eyebrow: "CH",
+    description: "Use for custom corporate or charter enrollments that need operational review.",
+    icon: BadgeCheck,
+    recommendedEnrollmentType: "charter",
+    highlights: ["Company details", "Custom rules", "Manager review"],
   },
 ];
 
@@ -485,6 +567,8 @@ function StepContent({
   errors,
   customerIdPreview,
   draftPayload,
+  selectedEnrollmentPath,
+  onEnrollmentPathSelect,
 }: Readonly<{
   stepId: string;
   values: EnrollmentFormValues;
@@ -495,7 +579,75 @@ function StepContent({
   errors: ValidationErrors;
   customerIdPreview: string | null;
   draftPayload: EnrollmentDraftPayload | null;
+  selectedEnrollmentPath: EnrollmentPath | "";
+  onEnrollmentPathSelect: (option: EnrollmentPathOption) => void;
 }>) {
+  if (stepId === "path") {
+    return (
+      <div className="space-y-5">
+        <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4 text-sm text-blue-950">
+          Start by choosing the enrollment workflow. This keeps advisors from seeing fields that do not apply to the sale.
+        </div>
+
+        <div className="grid gap-4 lg:grid-cols-2">
+          {enrollmentPathOptions.map((option) => {
+            const OptionIcon = option.icon;
+            const isSelected = selectedEnrollmentPath === option.id;
+
+            return (
+              <button
+                key={option.id}
+                type="button"
+                onClick={() => onEnrollmentPathSelect(option)}
+                className={cn(
+                  "rounded-2xl border p-5 text-left transition-all",
+                  isSelected
+                    ? "border-[#0057B8] bg-[#0057B8]/[0.07] shadow-sm ring-2 ring-[#0057B8]/10"
+                    : "border-slate-200 bg-white hover:border-[#0057B8]/30 hover:bg-slate-50"
+                )}
+              >
+                <div className="flex items-start gap-4">
+                  <div
+                    className={cn(
+                      "flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl",
+                      isSelected ? "bg-[#0057B8] text-white" : "bg-slate-100 text-slate-600"
+                    )}
+                  >
+                    <OptionIcon className="h-5 w-5" />
+                  </div>
+
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#0057B8]">
+                      {option.eyebrow}
+                    </p>
+                    <h3 className="mt-1 text-base font-semibold text-slate-950">
+                      {option.title}
+                    </h3>
+                    <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                      {option.description}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {option.highlights.map((highlight) => (
+                    <Badge
+                      key={highlight}
+                      variant="outline"
+                      className="rounded-full border-slate-200 bg-white text-slate-600"
+                    >
+                      {highlight}
+                    </Badge>
+                  ))}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
   const rules = getEnrollmentRules(values);
   const customerIdYear = values.enrollmentDate
     ? new Date(`${values.enrollmentDate}T00:00:00`).getFullYear().toString().slice(-2)
@@ -1278,6 +1430,7 @@ export function EnrollmentWizardShell() {
   const [values, setValues] = useState<EnrollmentFormValues>(
     getDefaultEnrollmentValues
   );
+  const [selectedEnrollmentPath, setSelectedEnrollmentPath] = useState<EnrollmentPath | "">("");
   const [errors, setErrors] = useState<ValidationErrors>({});
   const [draftMessage, setDraftMessage] = useState<string | null>(null);
 
@@ -1320,11 +1473,45 @@ export function EnrollmentWizardShell() {
     setDraftMessage(null);
   };
 
+  const handleEnrollmentPathSelect = (option: EnrollmentPathOption) => {
+    setSelectedEnrollmentPath(option.id);
+    setDraftMessage(null);
+
+    const recommendedEnrollmentType = option.recommendedEnrollmentType;
+
+    if (!recommendedEnrollmentType) {
+      return;
+    }
+
+    const autoSelections = getAutoSelectionsForEnrollmentType(recommendedEnrollmentType);
+
+    setValues((current) => ({
+      ...current,
+      enrollmentType: recommendedEnrollmentType,
+      modality: autoSelections.modality as EnrollmentFormValues["modality"],
+      language: autoSelections.language as EnrollmentFormValues["language"],
+      otherLanguage: "",
+      level: isPrivateAcademicProgram({ enrollmentType: recommendedEnrollmentType })
+        ? ""
+        : "Pending package review",
+      scheduleProgramType: "",
+      preferredDays: "",
+      preferredTime: "",
+    }));
+
+    setErrors({});
+  };
+
   const goBack = () => {
     setCurrentStepIndex((current) => Math.max(current - 1, 0));
   };
 
   const validateCurrentStep = () => {
+    if (currentStep.id === "path" && !selectedEnrollmentPath) {
+      setDraftMessage("Please choose an enrollment path before continuing.");
+      return false;
+    }
+
     const fieldsToValidate = stepValidationFields[currentStep.id] ?? [];
     const activeFields =
       values.language === "Other"
@@ -1572,6 +1759,8 @@ export function EnrollmentWizardShell() {
                   errors={errors}
                   customerIdPreview={customerIdPreview}
                   draftPayload={draftPayload}
+                  selectedEnrollmentPath={selectedEnrollmentPath}
+                  onEnrollmentPathSelect={handleEnrollmentPathSelect}
                 />
 
             {draftMessage ? (
