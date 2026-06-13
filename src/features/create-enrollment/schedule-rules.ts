@@ -31,8 +31,12 @@ export function isPrivateEnrollment(values: EnrollmentFormValues) {
   return (
     values.enrollmentType === "private" ||
     values.enrollmentType === "private_intensive" ||
-    values.enrollmentType === "semi_private"
+    values.enrollmentType === "private_am"
   );
+}
+
+export function isSemiPrivateEnrollment(values: EnrollmentFormValues) {
+  return values.enrollmentType === "semi_private";
 }
 
 export function isKidsEnrollment(values: EnrollmentFormValues) {
@@ -43,9 +47,17 @@ export function isGroupEnrollment(values: EnrollmentFormValues) {
   return values.enrollmentType === "group";
 }
 
+export function isCharterEnrollment(values: EnrollmentFormValues) {
+  return values.enrollmentType === "charter";
+}
+
 export function getScheduleProgramOptions(values: EnrollmentFormValues) {
   if (isPrivateEnrollment(values)) {
     return privateScheduleProgramOptions;
+  }
+
+  if (isSemiPrivateEnrollment(values)) {
+    return groupScheduleProgramOptions.filter((option) => option.value === "group_p2");
   }
 
   if (isKidsEnrollment(values)) {
@@ -54,6 +66,10 @@ export function getScheduleProgramOptions(values: EnrollmentFormValues) {
 
   if (isGroupEnrollment(values)) {
     return groupScheduleProgramOptions;
+  }
+
+  if (isCharterEnrollment(values)) {
+    return privateScheduleProgramOptions;
   }
 
   return [];

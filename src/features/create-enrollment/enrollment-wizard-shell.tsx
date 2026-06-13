@@ -242,7 +242,21 @@ function getAutoSelectionsForEnrollmentType(enrollmentType: string) {
     };
   }
 
-  if (enrollmentType === "cyberteacher") {
+  if (enrollmentType === "cyberteacher_license") {
+    return {
+      modality: "self_study",
+      language: "English",
+    };
+  }
+
+  if (enrollmentType === "cyberteacher_phone") {
+    return {
+      modality: "online",
+      language: "English",
+    };
+  }
+
+  if (enrollmentType === "flex") {
     return {
       modality: "self_study",
       language: "English",
@@ -638,7 +652,7 @@ function StepContent({
               setField("preferredDays", "");
               setField("preferredTime", "");
             }}
-            helper="Choose the program category sold. This controls schedule, documents, assignment, and private case rules."
+            helper="Choose the program category sold. Codes such as G1, P1, P2, CH, OP, and PP1 help determine schedule, assignment, and document rules."
             error={errors.enrollmentType}
           >
             <option value="">Select enrollment type</option>
@@ -907,6 +921,7 @@ function StepContent({
               setField("scheduleMode", privateEnrollment ? "fixed" : "");
               setField("privateScheduleNotes", "");
             }}
+            helper="Options are filtered by the enrollment type selected in Program."
             error={errors.scheduleProgramType}
           >
             <option value="">Select schedule program</option>
@@ -931,6 +946,7 @@ function StepContent({
                 setField("preferredTime", "");
                 setField("privateScheduleNotes", "");
               }}
+              helper="Use Fixed when the schedule is agreed. Use Flexible only when Customer Service must coordinate availability."
               error={errors.scheduleMode}
             >
               <option value="">Select schedule mode</option>
@@ -950,6 +966,14 @@ function StepContent({
           </div>
         ) : null}
 
+        {values.enrollmentType === "private_am" ? (
+          <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4 text-sm text-blue-900">
+            Private AM is F2F only, Monday through Friday, 9:00 AM–4:00 PM.
+            Confirm the agreed schedule is within the AM program rules before
+            continuing.
+          </div>
+        ) : null}
+
         {!flexiblePrivateSchedule ? (
           <FieldRow>
             <NativeSelect
@@ -963,6 +987,7 @@ function StepContent({
                 );
                 setField("preferredTime", "");
               }}
+              helper="For group schedules, only active fixed options are shown."
               error={errors.preferredDays}
             >
               <option value="">Select preferred days</option>
@@ -979,7 +1004,8 @@ function StepContent({
                 required
                 value={values.preferredTime ?? ""}
                 onChange={(value) => setField("preferredTime", value)}
-                placeholder="Enter preferred time"
+                placeholder="Example: Monday/Wednesday 6:00 PM"
+                helper="For private schedules, enter the agreed preferred time manually."
                 error={errors.preferredTime}
               />
             ) : (
@@ -993,6 +1019,7 @@ function StepContent({
                     value as EnrollmentFormValues["preferredTime"]
                   )
                 }
+                helper="Times are filtered by the selected program and days."
                 error={errors.preferredTime}
               >
                 <option value="">Select preferred time</option>
@@ -1009,8 +1036,8 @@ function StepContent({
         {fixedPrivateSchedule ? (
           <div className="rounded-2xl border bg-blue-50 p-4 text-sm text-blue-900">
             Fixed private schedules should include the agreed regular days and
-            preferred time. Multiple-day private selection will be refined in the
-            next pass.
+            preferred time. Multiple-day private selection will be refined in a
+            later pass.
           </div>
         ) : null}
 
@@ -1020,7 +1047,8 @@ function StepContent({
             required
             value={values.privateScheduleNotes ?? ""}
             onChange={(value) => setField("privateScheduleNotes", value)}
-            placeholder="Describe flexible schedule arrangement"
+            placeholder="Describe availability, restrictions, or coordination notes."
+            helper="Customer Service will use these notes to coordinate a flexible private schedule."
             error={errors.privateScheduleNotes}
           />
         ) : null}

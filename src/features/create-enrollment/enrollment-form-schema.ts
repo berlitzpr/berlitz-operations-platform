@@ -1,15 +1,17 @@
 import { z } from "zod";
 
 export const enrollmentTypeOptions = [
-  { value: "group", label: "Group" },
-  { value: "charter", label: "Charter / Corporate Group" },
-  { value: "private", label: "Private (Premium)" },
-  { value: "private_intensive", label: "Private (Intensive)" },
-  { value: "private_am", label: "Private AM" },
-  { value: "semi_private", label: "Semi-private" },
-  { value: "kids", label: "Kids" },
-  { value: "cyberteacher", label: "CyberTeacher / Flex" },
-  { value: "testing", label: "Testing" },
+  { value: "charter", label: "Charter / Corporate Group (CH)" },
+  { value: "cyberteacher_license", label: "CyberTeacher License Only (OP)" },
+  { value: "cyberteacher_phone", label: "CyberTeacher with Phone Lessons (PP1)" },
+  { value: "flex", label: "Flex (Pending)" },
+  { value: "group", label: "Group (G1)" },
+  { value: "kids", label: "Kids (G3)" },
+  { value: "private_am", label: "Private AM (P1)" },
+  { value: "private_intensive", label: "Private Intensive (P1)" },
+  { value: "private", label: "Private Premium (P1)" },
+  { value: "semi_private", label: "Semi-private (P2)" },
+  { value: "testing", label: "Testing (Pending)" },
 ] as const;
 
 export const modalityOptions = [
@@ -162,13 +164,16 @@ export function getEnrollmentRules(values: EnrollmentFormValues) {
   const isPrivate =
     values.enrollmentType === "private" ||
     values.enrollmentType === "private_intensive" ||
-    values.enrollmentType === "semi_private";
+    values.enrollmentType === "private_am";
 
   const isPrivateIntensive = values.enrollmentType === "private_intensive";
   const isGroup =
     values.enrollmentType !== "" &&
     !isPrivate &&
-    values.enrollmentType !== "testing";
+    values.enrollmentType !== "testing" &&
+    values.enrollmentType !== "cyberteacher_license" &&
+    values.enrollmentType !== "cyberteacher_phone" &&
+    values.enrollmentType !== "flex";
 
   const requiresTbo = isGroup;
   const requiresPrivateCase = isPrivate;
