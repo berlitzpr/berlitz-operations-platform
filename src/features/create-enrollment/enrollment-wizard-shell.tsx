@@ -91,12 +91,6 @@ const wizardSteps: WizardStep[] = [
     icon: CalendarClock,
   },
   {
-    id: "pricing",
-    title: "Pricing & Payment",
-    description: "Price, deposit, payment plan, and authorization rules.",
-    icon: CreditCard,
-  },
-  {
     id: "documents",
     title: "Review",
     description: "Agreement, routing, documents, and final checklist preview.",
@@ -456,9 +450,67 @@ function getAgreementTotals(values: EnrollmentFormValues, programPackage: Progra
   };
 }
 
+function getAdjustedProgramLessons(
+  programPackage: ProgramPackage | undefined,
+  level: string | undefined
+) {
+  if (!programPackage || programPackage.classificationCode !== "G1") {
+    return (
+      programPackage?.lessons ??
+      programPackage?.totalScheduledLessons ??
+      programPackage?.paidLessons
+    );
+  }
+
+  if (programPackage.levelCount === 4) {
+    return 184;
+  }
+
+  if (programPackage.levelCount === 2) {
+    return level === "Levels 3-4" ? 90 : 94;
+  }
+
+  if (programPackage.levelCount === 1) {
+    return level === "Level 1" ? 49 : 45;
+  }
+
+  return programPackage.lessons;
+}
+
+function applyLessonPricingForLevel(
+  programPackage: ProgramPackage | undefined,
+  level: string,
+  setField: <T extends keyof EnrollmentFormValues>(
+    field: T,
+    value: EnrollmentFormValues[T]
+  ) => void
+) {
+  const lessons = getAdjustedProgramLessons(programPackage, level);
+  const rate = programPackage?.ratePerLesson;
+
+  if (lessons !== undefined) {
+    setField("regularLessons", String(lessons));
+  }
+
+  if (lessons !== undefined && rate !== undefined) {
+    setField("tuition", formatCatalogMoney(lessons * rate));
+  }
+}
+
 function getKnownPaymentBreakdown(programPackage: ProgramPackage | undefined) {
   if (!programPackage) {
     return null;
+  }
+
+  if (programPackage.id === "g1_2_levels_2026") {
+    return {
+      deposit: 75,
+      confirmation: 184.1,
+      installmentCount: 7,
+      installmentAmount: 112,
+      cadence: "every 2 weeks",
+      note: "Configured from the confirmed G1 two-level payment schedule.",
+    };
   }
 
   if (programPackage.id === "private_express_levels_5_8_2026") {
@@ -501,6 +553,7 @@ const stepValidationFields: Record<string, (keyof EnrollmentFormValues)[]> = {
     "otherLanguage",
     "regularLessons",
     "lessonRate",
+    "paymentPlan",
   ],
   schedule: [
     "scheduleProgramType",
@@ -513,7 +566,6 @@ const stepValidationFields: Record<string, (keyof EnrollmentFormValues)[]> = {
     "contractStartDate",
     "contractExpirationDate",
   ],
-  pricing: ["paymentPlan"],
   assignment: [],
   documents: [],
 };
@@ -862,10 +914,7 @@ function StepContent({
       );
     }
 
-    const lessons =
-      programPackage.lessons ??
-      programPackage.totalScheduledLessons ??
-      programPackage.paidLessons;
+    const lessons = getAdjustedProgramLessons(programPackage, values.level);
 
     setField("regularLessons", formatCatalogNumber(lessons));
     setField("noChargeLessons", formatCatalogNumber(programPackage.noChargeLessons ?? 0));
@@ -1001,7 +1050,7 @@ function StepContent({
             required
             value={values.city ?? ""}
             onChange={(value) => setField("city", formatNameInput(value))}
-            placeholder="Guaynabo"
+            placeholder="Enter city"
             error={errors.city}
           />
         </FieldRow>
@@ -1020,7 +1069,7 @@ function StepContent({
             required
             value={values.postalCode ?? ""}
             onChange={(value) => setField("postalCode", value.replace(/\D/g, "").slice(0, 5))}
-            placeholder="00969"
+            placeholder="Enter zip code"
             error={errors.postalCode}
           />
         </FieldRow>
@@ -1110,6 +1159,14 @@ function StepContent({
             />
           </FieldRow>
         )}
+
+        <Field
+          label="Alternate phone"
+          value={values.alternatePhone ?? ""}
+          onChange={(value) => setField("alternatePhone", formatPhoneInput(value))}
+          placeholder="Optional alternate phone"
+          error={errors.alternatePhone}
+        />
 
         <FieldRow>
           <div className="space-y-2">
@@ -1289,7 +1346,10 @@ function StepContent({
                 label="Level"
                 required
                 value={values.level === "Pending package review" ? "" : values.level ?? ""}
-                onChange={(value) => setField("level", value)}
+                onChange={(value) => {
+                  setField("level", value);
+                  applyLessonPricingForLevel(selectedProgramPackage, value, setField);
+                }}
                 helper="Private academic programs use levels 1–10."
                 error={errors.level}
               >
@@ -1462,7 +1522,14 @@ function StepContent({
             label="Regular lessons"
             required
             value={values.regularLessons ?? ""}
-            onChange={(value) => setField("regularLessons", value)}
+            onChange={(value) => {
+              setField("regularLessons", value);
+              const lessons = Number.parseFloat(value);
+              const rate = Number.parseFloat((values.lessonRate ?? "").replace(/[^0-9.]/g, ""));
+              if (Number.isFinite(lessons) && Number.isFinite(rate)) {
+                setField("tuition", formatCatalogMoney(lessons * rate));
+              }
+            }}
             placeholder="Enter regular lessons"
             helper="For private programs, this may auto-fill from the selected private package."
             error={errors.regularLessons}
@@ -1472,14 +1539,165 @@ function StepContent({
             required
             value={values.lessonRate ?? ""}
             onChange={(value) => setField("lessonRate", formatMoneyInput(value))}
-            onBlur={() =>
-              setField("lessonRate", normalizeMoneyInput(values.lessonRate ?? ""))
-            }
+            onBlur={() => {
+              const normalizedRate = normalizeMoneyInput(values.lessonRate ?? "");
+              setField("lessonRate", normalizedRate);
+
+              const lessons = Number.parseFloat(values.regularLessons ?? "");
+              const rate = Number.parseFloat(normalizedRate.replace(/[^0-9.]/g, ""));
+              if (Number.isFinite(lessons) && Number.isFinite(rate)) {
+                setField("tuition", formatCatalogMoney(lessons * rate));
+              }
+            }}
             placeholder="Enter lesson rate"
             helper="Use the approved current rate for the selected program/package."
             error={errors.lessonRate}
           />
         </FieldRow>
+
+        <div className="border-t border-slate-200 pt-6">
+          <div className="mb-4">
+            <h3 className="text-base font-semibold text-slate-950">Pricing & Payment</h3>
+            <p className="text-sm text-muted-foreground">
+              Confirm tuition, material, registration, deposit, and payment plan from the selected package.
+            </p>
+          </div>
+
+        <FieldRow>
+          <Field
+            label="Tuition"
+            value={values.tuition ?? ""}
+            onChange={(value) => setField("tuition", value)}
+            placeholder="Example: 1748.00"
+          />
+          <Field
+            label="Registration fee"
+            value={values.registrationFee ?? ""}
+            onChange={(value) => setField("registrationFee", value)}
+            placeholder="Example: 25.00"
+          />
+        </FieldRow>
+
+        <FieldRow>
+          <Field
+            label="Material fee"
+            value={values.materialFee ?? ""}
+            onChange={(value) => setField("materialFee", value)}
+            placeholder="Example: 103.00"
+          />
+          <Field
+            label="Deposit"
+            value={values.deposit ?? ""}
+            onChange={(value) => setField("deposit", value)}
+            placeholder="Example: 100.00"
+          />
+        </FieldRow>
+
+        {selectedProgramPackage ? (
+          <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4 text-sm text-blue-950">
+            <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">
+              Program pricing summary
+            </p>
+            <div className="mt-3 grid gap-2 md:grid-cols-2">
+              <p>
+                <span className="font-semibold">Package:</span>{" "}
+                {selectedProgramPackage.name}
+              </p>
+              <p>
+                <span className="font-semibold">Code:</span>{" "}
+                {getAgreementScheduleCode(selectedProgramPackage)}
+              </p>
+              <p>
+                <span className="font-semibold">Tuition:</span>{" "}
+                {formatCatalogMoney(agreementTotals.tuition)}
+              </p>
+              <p>
+                <span className="font-semibold">Registration fee:</span>{" "}
+                {formatCatalogMoney(agreementTotals.registration)}
+              </p>
+              <p>
+                <span className="font-semibold">Material:</span>{" "}
+                {formatCatalogMoney(agreementTotals.material)}
+              </p>
+              <p>
+                <span className="font-semibold">Subtotal:</span>{" "}
+                {formatCatalogMoney(agreementTotals.subtotal)}
+              </p>
+              <p>
+                <span className="font-semibold">State Tax 10.5%:</span>{" "}
+                {formatCatalogMoney(agreementTotals.stateTax)}
+              </p>
+              <p>
+                <span className="font-semibold">Municipal Tax 1%:</span>{" "}
+                {formatCatalogMoney(agreementTotals.municipalTax)}
+              </p>
+              <p className="text-base font-bold">
+                Total: {formatCatalogMoney(agreementTotals.total)}
+              </p>
+            </div>
+          </div>
+        ) : null}
+
+        <NativeSelect
+          label="Payment plan"
+          required
+          value={values.paymentPlan}
+          onChange={(value) =>
+            setField("paymentPlan", value as EnrollmentFormValues["paymentPlan"])
+          }
+          helper="If not Full Paid, authorization document will be required."
+          error={errors.paymentPlan}
+        >
+          <option value="">Select payment plan</option>
+          {paymentPlanOptions.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </NativeSelect>
+
+        {selectedProgramPackage ? (
+          <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4 text-sm text-blue-950">
+            <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">
+              Payment schedule preview
+            </p>
+
+            {knownPaymentBreakdown ? (
+              <div className="mt-2 space-y-1">
+                <p>
+                  <span className="font-semibold">Deposit:</span>{" "}
+                  {formatCatalogMoney(knownPaymentBreakdown.deposit)}
+                </p>
+                <p>
+                  <span className="font-semibold">At confirmation:</span>{" "}
+                  {formatCatalogMoney(knownPaymentBreakdown.confirmation)}
+                </p>
+                <p>
+                  <span className="font-semibold">Remaining payments:</span>{" "}
+                  {knownPaymentBreakdown.installmentCount} payments of{" "}
+                  {formatCatalogMoney(knownPaymentBreakdown.installmentAmount)}{" "}
+                  {knownPaymentBreakdown.cadence}
+                </p>
+                <p className="text-xs leading-5 text-blue-900">
+                  {knownPaymentBreakdown.note}
+                </p>
+              </div>
+            ) : (
+              <p className="mt-2 text-xs leading-5 text-blue-900">
+                This package has pricing loaded, but the exact deposit, confirmation payment,
+                and installment schedule still need payment setup confirmation before automation.
+              </p>
+            )}
+          </div>
+        ) : null}
+
+        <div className="rounded-2xl border bg-amber-50 p-4 text-sm text-amber-900">
+          {rules.requiresPaymentAuthorization
+            ? "Payment authorization will be required for this payment plan."
+            : "Full Paid selected. Payment authorization is not required by default."}
+        </div>
+
+        </div>
 
         {values.enrollmentType === "private_intensive" ? (
           <Field
@@ -1539,7 +1757,12 @@ function StepContent({
                   value as EnrollmentFormValues["scheduleMode"]
                 );
                 setField("preferredDays", "");
-                setField("preferredTime", "");
+                const nextTimeOptions = getTimeOptions({
+                ...values,
+                preferredDays: value,
+              } as EnrollmentFormValues);
+
+              setField("preferredTime", nextTimeOptions.length === 1 ? nextTimeOptions[0].value : "");
                 setField("privateScheduleNotes", "");
               }}
               helper="Use Fixed when the schedule is agreed. Use Flexible only when Customer Service must coordinate availability."
@@ -1602,7 +1825,7 @@ function StepContent({
 
             {privateEnrollment ? (
               <Field
-                label="Preferred time"
+                label="Schedule"
                 required
                 value={values.preferredTime ?? ""}
                 onChange={(value) => setField("preferredTime", value)}
@@ -1612,7 +1835,7 @@ function StepContent({
               />
             ) : (
               <NativeSelect
-                label="Preferred time"
+                label="Schedule"
                 required
                 value={values.preferredTime ?? ""}
                 onChange={(value) =>
@@ -1621,10 +1844,10 @@ function StepContent({
                     value as EnrollmentFormValues["preferredTime"]
                   )
                 }
-                helper="Times are filtered by the selected program and days."
+                helper="Schedule is filtered by the selected program and days."
                 error={errors.preferredTime}
               >
-                <option value="">Select preferred time</option>
+                <option value="">Select schedule</option>
                 {timeOptions.map((option) => (
                   <option key={option.value} value={option.value}>
                     {option.label}
@@ -1718,146 +1941,6 @@ function StepContent({
             </p>
           </div>
         </FieldRow>
-      </div>
-    );
-  }
-
-  if (stepId === "pricing") {
-    return (
-      <div className="space-y-5">
-        {selectedProgramPackage ? (
-          <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4 text-sm text-blue-950">
-            <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">
-              Program pricing summary
-            </p>
-            <div className="mt-3 grid gap-2 md:grid-cols-2">
-              <p>
-                <span className="font-semibold">Package:</span>{" "}
-                {selectedProgramPackage.name}
-              </p>
-              <p>
-                <span className="font-semibold">Code:</span>{" "}
-                {getAgreementScheduleCode(selectedProgramPackage)}
-              </p>
-              <p>
-                <span className="font-semibold">Tuition:</span>{" "}
-                {formatCatalogMoney(agreementTotals.tuition)}
-              </p>
-              <p>
-                <span className="font-semibold">Registration fee:</span>{" "}
-                {formatCatalogMoney(agreementTotals.registration)}
-              </p>
-              <p>
-                <span className="font-semibold">Material:</span>{" "}
-                {formatCatalogMoney(agreementTotals.material)}
-              </p>
-              <p>
-                <span className="font-semibold">Subtotal:</span>{" "}
-                {formatCatalogMoney(agreementTotals.subtotal)}
-              </p>
-              <p>
-                <span className="font-semibold">State Tax 10.5%:</span>{" "}
-                {formatCatalogMoney(agreementTotals.stateTax)}
-              </p>
-              <p>
-                <span className="font-semibold">Municipal Tax 1%:</span>{" "}
-                {formatCatalogMoney(agreementTotals.municipalTax)}
-              </p>
-              <p className="text-base font-bold">
-                Total: {formatCatalogMoney(agreementTotals.total)}
-              </p>
-            </div>
-          </div>
-        ) : null}
-
-        <FieldRow>
-          <Field
-            label="Tuition"
-            value={values.tuition ?? ""}
-            onChange={(value) => setField("tuition", value)}
-            placeholder="Example: 1748.00"
-          />
-          <Field
-            label="Registration fee"
-            value={values.registrationFee ?? ""}
-            onChange={(value) => setField("registrationFee", value)}
-            placeholder="Example: 25.00"
-          />
-        </FieldRow>
-
-        <FieldRow>
-          <Field
-            label="Material fee"
-            value={values.materialFee ?? ""}
-            onChange={(value) => setField("materialFee", value)}
-            placeholder="Example: 103.00"
-          />
-          <Field
-            label="Deposit"
-            value={values.deposit ?? ""}
-            onChange={(value) => setField("deposit", value)}
-            placeholder="Example: 100.00"
-          />
-        </FieldRow>
-
-        <NativeSelect
-          label="Payment plan"
-          required
-          value={values.paymentPlan}
-          onChange={(value) =>
-            setField("paymentPlan", value as EnrollmentFormValues["paymentPlan"])
-          }
-          helper="If not Full Paid, authorization document will be required."
-          error={errors.paymentPlan}
-        >
-          <option value="">Select payment plan</option>
-          {paymentPlanOptions.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </NativeSelect>
-
-        {selectedProgramPackage ? (
-          <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4 text-sm text-blue-950">
-            <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">
-              Payment schedule preview
-            </p>
-
-            {knownPaymentBreakdown ? (
-              <div className="mt-2 space-y-1">
-                <p>
-                  <span className="font-semibold">Deposit:</span>{" "}
-                  {formatCatalogMoney(knownPaymentBreakdown.deposit)}
-                </p>
-                <p>
-                  <span className="font-semibold">At confirmation:</span>{" "}
-                  {formatCatalogMoney(knownPaymentBreakdown.confirmation)}
-                </p>
-                <p>
-                  <span className="font-semibold">Remaining payments:</span>{" "}
-                  {knownPaymentBreakdown.installmentCount} payments of{" "}
-                  {formatCatalogMoney(knownPaymentBreakdown.installmentAmount)}{" "}
-                  {knownPaymentBreakdown.cadence}
-                </p>
-                <p className="text-xs leading-5 text-blue-900">
-                  {knownPaymentBreakdown.note}
-                </p>
-              </div>
-            ) : (
-              <p className="mt-2 text-xs leading-5 text-blue-900">
-                This package has pricing loaded, but the exact deposit, confirmation payment,
-                and installment schedule still need payment setup confirmation before automation.
-              </p>
-            )}
-          </div>
-        ) : null}
-
-        <div className="rounded-2xl border bg-amber-50 p-4 text-sm text-amber-900">
-          {rules.requiresPaymentAuthorization
-            ? "Payment authorization will be required for this payment plan."
-            : "Full Paid selected. Payment authorization is not required by default."}
-        </div>
       </div>
     );
   }
