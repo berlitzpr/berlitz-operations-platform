@@ -32,11 +32,11 @@ import { cn } from "@/lib/utils";
 import {
   buildCustomerId,
   enrollmentFormSchema,
-  enrollmentTypeOptions,
   getDefaultEnrollmentValues,
   getEnrollmentRules,
   languageOptions,
   modalityOptions,
+  parentGuardianRelationshipOptions,
   paymentPlanOptions,
   type EnrollmentFormValues,
 } from "./enrollment-form-schema";
@@ -44,8 +44,12 @@ import {
   buildEnrollmentDraftPayload,
   type EnrollmentDraftPayload,
 } from "./enrollment-draft-payload";
-import type { EnrollmentPath } from "./program-package-catalog";
-import { getPrivateProgramRule } from "./private-program-rules";
+import {
+  getProgramPackageById,
+  getProgramPackagesByPath,
+  type EnrollmentPath,
+  type ProgramPackage,
+} from "./program-package-catalog";
 import {
   getDayOptions,
   getScheduleProgramOptions,
@@ -121,10 +125,19 @@ const enrollmentPathOptions: EnrollmentPathOption[] = [
     id: "group",
     title: "Group Programs",
     eyebrow: "G1 / TB / G3",
-    description: "Use for adult groups, True Beginner, kids groups, summer, and winter group programs.",
+    description: "Use for adult groups and True Beginner group programs.",
     icon: UsersRound,
     recommendedEnrollmentType: "group",
     highlights: ["TBO assignment", "Group schedule", "Headcount rules"],
+  },
+  {
+    id: "kids",
+    title: "Kids & Teens",
+    eyebrow: "G3",
+    description: "Use for Kids & Teens group programs where the adult contact is the responsible party.",
+    icon: UsersRound,
+    recommendedEnrollmentType: "kids",
+    highlights: ["Parent contact", "Age required", "Kids schedule"],
   },
   {
     id: "semi_private",
@@ -227,6 +240,14 @@ function getVisiblePrivatePaceOptions(values: Pick<EnrollmentFormValues, "enroll
   return privatePaceOptions;
 }
 
+function isKidsEnrollment(values: Pick<EnrollmentFormValues, "enrollmentType" | "selectedPackageId">) {
+  return (
+    values.enrollmentType === "kids" ||
+    values.selectedPackageId?.includes("kids") ||
+    values.selectedPackageId?.includes("g3")
+  );
+}
+
 function isPrivateAcademicProgram(values: Pick<EnrollmentFormValues, "enrollmentType">) {
   return (
     values.enrollmentType === "private" ||
@@ -235,17 +256,181 @@ function isPrivateAcademicProgram(values: Pick<EnrollmentFormValues, "enrollment
   );
 }
 
+function formatCatalogMoney(value: number | undefined) {
+  return value === undefined ? "" : `$${value.toFixed(2)}`;
+}
+
+function parseCatalogMoney(value: string | undefined) {
+  const parsed = Number.parseFloat((value ?? "").replace(/[^0-9.-]/g, ""));
+
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function formatAgreementDate(value: string | undefined) {
+  if (!value) {
+    return "";
+  }
+
+  const date = new Date(`${value}T00:00:00`);
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return date
+    .toLocaleDateString("en-US", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    })
+    .replace(",", "")
+    .toUpperCase();
+}
+
+function formatCatalogNumber(value: number | undefined) {
+  return value === undefined ? "" : String(value);
+}
+
+function getPackageLevelLabel(programPackage: ProgramPackage) {
+  if (programPackage.levelRange) {
+    return programPackage.levelRange;
+  }
+
+  if (programPackage.levelCount) {
+    return `${programPackage.levelCount} level${programPackage.levelCount === 1 ? "" : "s"}`;
+  }
+
+  return "Package selected";
+}
+
+function getGroupLevelOptions(programPackage: ProgramPackage | undefined) {
+  if (!programPackage || programPackage.classificationCode !== "G1") {
+    return [];
+  }
+
+  if (programPackage.levelCount === 1) {
+    return [
+      { value: "Level 1", label: "Level 1" },
+      { value: "Level 2", label: "Level 2" },
+      { value: "Level 3", label: "Level 3" },
+      { value: "Level 4", label: "Level 4" },
+    ];
+  }
+
+  if (programPackage.levelCount === 2) {
+    return [
+      { value: "Levels 1-2", label: "Levels 1-2" },
+      { value: "Levels 3-4", label: "Levels 3-4" },
+    ];
+  }
+
+  return [];
+}
+
+function calculateContractExpirationDate(
+  startDate: string,
+  programPackage: ProgramPackage | undefined
+) {
+  if (!startDate || !programPackage) {
+    return "";
+  }
+
+  const date = new Date(`${startDate}T00:00:00`);
+
+  if (programPackage.licenseDurationMonths) {
+    date.setMonth(date.getMonth() + programPackage.licenseDurationMonths);
+  } else if (programPackage.durationWeeks) {
+    date.setDate(date.getDate() + Math.round(programPackage.durationWeeks * 7));
+  } else {
+    return "";
+  }
+
+  return date.toISOString().slice(0, 10);
+}
+
+function getAgreementContact(values: EnrollmentFormValues) {
+  if (isKidsEnrollment(values)) {
+    return {
+      name: values.parentGuardianName ?? "",
+      email: values.parentGuardianEmail ?? "",
+      phone: values.parentGuardianPhone ?? "",
+      relationship: values.parentGuardianRelationship ?? "",
+    };
+  }
+
+  return {
+    name: `${values.firstName} ${values.lastName}`.trim(),
+    email: values.email ?? "",
+    phone: values.mobilePhone ?? "",
+    relationship: "",
+  };
+}
+
+function getAgreementStudentName(values: EnrollmentFormValues) {
+  const studentName = `${values.firstName} ${values.lastName}`.trim();
+
+  if (isKidsEnrollment(values) && values.childAge) {
+    return `${studentName} (${values.childAge})`;
+  }
+
+  return studentName;
+}
+
+function getAgreementTotals(values: EnrollmentFormValues, programPackage: ProgramPackage | undefined) {
+  const tuition = parseCatalogMoney(values.tuition);
+  const registration = parseCatalogMoney(values.registrationFee);
+  const material = parseCatalogMoney(values.materialFee);
+  const subtotal = programPackage?.total ?? tuition + registration + material;
+  const tax = programPackage?.taxApplies && programPackage.taxRate
+    ? subtotal * programPackage.taxRate
+    : 0;
+  const total = programPackage?.totalWithTax ?? subtotal + tax;
+
+  return {
+    tuition,
+    registration,
+    material,
+    tax,
+    total,
+  };
+}
+
+function getKnownPaymentBreakdown(programPackage: ProgramPackage | undefined) {
+  if (!programPackage) {
+    return null;
+  }
+
+  if (programPackage.id === "private_express_levels_5_8_2026") {
+    return {
+      deposit: 195,
+      confirmation: 300,
+      installmentCount: 2,
+      installmentAmount: 300,
+      cadence: "every 2 weeks",
+      note: "Payment plan requires credit card guarantee.",
+    };
+  }
+
+  return null;
+}
+
 const stepValidationFields: Record<string, (keyof EnrollmentFormValues)[]> = {
   student: [
     "firstName",
     "lastName",
     "email",
     "mobilePhone",
+    "childAge",
+    "parentGuardianName",
+    "parentGuardianRelationship",
+    "parentGuardianPhone",
+    "parentGuardianEmail",
     "customerIdLast5",
     "enrollmentDate",
   ],
   program: [
     "enrollmentType",
+    "selectedPackageId",
     "modality",
     "language",
     "otherLanguage",
@@ -582,6 +767,66 @@ function StepContent({
   selectedEnrollmentPath: EnrollmentPath | "";
   onEnrollmentPathSelect: (option: EnrollmentPathOption) => void;
 }>) {
+  const visibleProgramPackages = selectedEnrollmentPath
+    ? getProgramPackagesByPath(selectedEnrollmentPath)
+    : [];
+  const selectedProgramPackage = values.selectedPackageId
+    ? getProgramPackageById(values.selectedPackageId)
+    : undefined;
+
+  const groupLevelOptions = getGroupLevelOptions(selectedProgramPackage);
+  const knownPaymentBreakdown = getKnownPaymentBreakdown(selectedProgramPackage);
+
+  const applyProgramPackage = (packageId: string) => {
+    setField("selectedPackageId", packageId);
+
+    const programPackage = getProgramPackageById(packageId);
+
+    if (!programPackage) {
+      return;
+    }
+
+    if (!isPrivateAcademicProgram(values)) {
+      const nextLevelOptions = getGroupLevelOptions(programPackage);
+      setField(
+        "level",
+        nextLevelOptions.length === 1
+          ? nextLevelOptions[0].value
+          : getPackageLevelLabel(programPackage)
+      );
+    }
+
+    const lessons =
+      programPackage.lessons ??
+      programPackage.totalScheduledLessons ??
+      programPackage.paidLessons;
+
+    setField("regularLessons", formatCatalogNumber(lessons));
+    setField("noChargeLessons", formatCatalogNumber(programPackage.noChargeLessons ?? 0));
+    setField("lessonRate", formatCatalogMoney(programPackage.ratePerLesson));
+    setField("tuition", formatCatalogMoney(programPackage.tuition));
+    setField("registrationFee", formatCatalogMoney(programPackage.registrationFee));
+    setField("materialFee", formatCatalogMoney(programPackage.materialFee));
+
+    if (programPackage.scheduleProgramType) {
+      setField(
+        "scheduleProgramType",
+        programPackage.scheduleProgramType as EnrollmentFormValues["scheduleProgramType"]
+      );
+    }
+
+    setField(
+      "contractExpirationDate",
+      calculateContractExpirationDate(values.tentativeStartDate ?? "", programPackage)
+    );
+
+    const paymentBreakdown = getKnownPaymentBreakdown(programPackage);
+    setField(
+      "deposit",
+      paymentBreakdown ? formatCatalogMoney(paymentBreakdown.deposit) : ""
+    );
+  };
+
   if (stepId === "path") {
     return (
       <div className="space-y-5">
@@ -676,25 +921,91 @@ function StepContent({
           />
         </FieldRow>
 
-        <FieldRow>
-          <Field
-            label="Email"
-            required
-            value={values.email}
-            onChange={(value) => setField("email", value)}
-            placeholder="student@email.com"
-            type="email"
-            error={errors.email}
-          />
-          <Field
-            label="Mobile phone"
-            required
-            value={values.mobilePhone ?? ""}
-            onChange={(value) => setField("mobilePhone", formatPhoneInput(value))}
-            placeholder="787-000-0000"
-            error={errors.mobilePhone}
-          />
-        </FieldRow>
+        {isKidsEnrollment(values) ? (
+          <>
+            <Field
+              label="Child age"
+              required
+              value={values.childAge ?? ""}
+              onChange={(value) =>
+                setField("childAge", value.replace(/\D/g, "").slice(0, 2))
+              }
+              placeholder="Example: 9"
+              error={errors.childAge}
+            />
+
+            <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4 text-sm text-blue-950">
+              For Kids programs, the adult responsible for the student is the primary contact. Do not enter phone or email for the minor.
+            </div>
+
+            <FieldRow>
+              <Field
+                label="Parent / guardian full name"
+                required
+                value={values.parentGuardianName ?? ""}
+                onChange={(value) => setField("parentGuardianName", formatNameInput(value))}
+                placeholder="Enter adult contact name"
+                error={errors.parentGuardianName}
+              />
+              <NativeSelect
+                label="Relationship to student"
+                required
+                value={values.parentGuardianRelationship ?? ""}
+                onChange={(value) => setField("parentGuardianRelationship", value)}
+                error={errors.parentGuardianRelationship}
+              >
+                <option value="">Select relationship</option>
+                {parentGuardianRelationshipOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </NativeSelect>
+            </FieldRow>
+
+            <FieldRow>
+              <Field
+                label="Parent / guardian email"
+                required
+                value={values.parentGuardianEmail ?? ""}
+                onChange={(value) => setField("parentGuardianEmail", value)}
+                placeholder="parent@email.com"
+                type="email"
+                error={errors.parentGuardianEmail}
+              />
+              <Field
+                label="Parent / guardian phone"
+                required
+                value={values.parentGuardianPhone ?? ""}
+                onChange={(value) =>
+                  setField("parentGuardianPhone", formatPhoneInput(value))
+                }
+                placeholder="787-000-0000"
+                error={errors.parentGuardianPhone}
+              />
+            </FieldRow>
+          </>
+        ) : (
+          <FieldRow>
+            <Field
+              label="Email"
+              required
+              value={values.email ?? ""}
+              onChange={(value) => setField("email", value)}
+              placeholder="student@email.com"
+              type="email"
+              error={errors.email}
+            />
+            <Field
+              label="Mobile phone"
+              required
+              value={values.mobilePhone ?? ""}
+              onChange={(value) => setField("mobilePhone", formatPhoneInput(value))}
+              placeholder="787-000-0000"
+              error={errors.mobilePhone}
+            />
+          </FieldRow>
+        )}
 
         <FieldRow>
           <div className="space-y-2">
@@ -730,7 +1041,10 @@ function StepContent({
             label="Enrollment date"
             required
             value={values.enrollmentDate}
-            onChange={(value) => setField("enrollmentDate", value)}
+            onChange={(value) => {
+              setField("enrollmentDate", value);
+              setField("contractStartDate", value);
+            }}
             type="date"
             error={errors.enrollmentDate}
           />
@@ -762,58 +1076,45 @@ function StepContent({
     return (
       <div className="space-y-5">
         <FieldRow>
-          <NativeSelect
-            label="Enrollment type"
-            required
-            value={values.enrollmentType}
-            onChange={(value) => {
-              const autoSelections = getAutoSelectionsForEnrollmentType(value);
-              const nextPrivateRule = getPrivateProgramRule({
-                enrollmentType: value as EnrollmentFormValues["enrollmentType"],
-              });
+          {selectedEnrollmentPath ? (
+            <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4 text-sm text-blue-950">
+              <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">
+                Workflow selected
+              </p>
+              <p className="mt-1 font-semibold">
+                {
+                  enrollmentPathOptions.find(
+                    (option) => option.id === selectedEnrollmentPath
+                  )?.title
+                }
+              </p>
+              <p className="mt-1 text-xs leading-5 text-blue-900">
+                Enrollment type is locked from the selected path to prevent mismatched package options.
+              </p>
+            </div>
+          ) : null}
 
-              setField("enrollmentType", value as EnrollmentFormValues["enrollmentType"]);
-              setField(
-                "modality",
-                autoSelections.modality as EnrollmentFormValues["modality"]
-              );
-              setField(
-                "language",
-                autoSelections.language as EnrollmentFormValues["language"]
-              );
-
-              if (nextPrivateRule) {
-                setField("regularLessons", nextPrivateRule.regularLessons);
-                setField("noChargeLessons", nextPrivateRule.noChargeLessons);
-              } else {
-                setField("noChargeLessons", "0");
-              }
-
-              if (value === "private_am") {
-                setField("privatePace", "regular");
-              }
-              setField("otherLanguage", "");
-              setField("level", isPrivateAcademicProgram({
-                enrollmentType: value as EnrollmentFormValues["enrollmentType"],
-              }) ? "" : "Pending package review");
-              setField("privateFocus", "");
-              setField("privatePace", value === "private_am" ? "regular" : "");
-              setField("privateSpecializationStatus", "");
-              setField("privateSpecializations", "");
-              setField("scheduleProgramType", "");
-              setField("preferredDays", "");
-              setField("preferredTime", "");
-            }}
-            helper="Choose the program category sold. Codes such as G1, P1, P2, CH, OP, and PP1 help determine schedule, assignment, and document rules."
-            error={errors.enrollmentType}
-          >
-            <option value="">Select enrollment type</option>
-            {enrollmentTypeOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </NativeSelect>
+          {visibleProgramPackages.length > 0 ? (
+            <NativeSelect
+              label="Package / Offer"
+              required
+              value={values.selectedPackageId ?? ""}
+              onChange={applyProgramPackage}
+              helper="Only packages matching the selected enrollment path are shown. Selecting a package auto-fills lessons, rate, and pricing."
+              error={errors.selectedPackageId}
+            >
+              <option value="">Select package / offer</option>
+              {visibleProgramPackages.map((programPackage) => (
+                <option key={programPackage.id} value={programPackage.id}>
+                  {programPackage.name}
+                </option>
+              ))}
+            </NativeSelect>
+          ) : (
+            <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+              Package selection for this path will be handled in a specialized flow.
+            </div>
+          )}
 
           <NativeSelect
             label="Modality"
@@ -978,16 +1279,68 @@ function StepContent({
               ) : null}
             </>
           ) : (
-            <Field
-              label="Program package / level range"
-              value={values.level ?? ""}
-              onChange={(value) => setField("level", value)}
-              placeholder="Pending package review"
-              helper="Temporary field until the official package catalog is connected."
-              error={errors.level}
-            />
+            groupLevelOptions.length > 0 ? (
+              <NativeSelect
+                label="Level / range"
+                required
+                value={values.level ?? ""}
+                onChange={(value) => setField("level", value)}
+                helper="Choose the exact level/range for the selected group package."
+                error={errors.level}
+              >
+                <option value="">Select level / range</option>
+                {groupLevelOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </NativeSelect>
+            ) : (
+              <Field
+                label="Program package / level range"
+                value={values.level ?? ""}
+                onChange={(value) => setField("level", value)}
+                placeholder="Pending package review"
+                helper="Auto-filled from the selected Package / Offer."
+                error={errors.level}
+              />
+            )
           )}
         </FieldRow>
+
+        {selectedProgramPackage ? (
+          <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4 text-sm text-blue-950">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="font-semibold">{selectedProgramPackage.classificationCode}</span>
+              <span>·</span>
+              <span>{selectedProgramPackage.programFamily}</span>
+              {selectedProgramPackage.total !== undefined ? (
+                <>
+                  <span>·</span>
+                  <span>Total: {formatCatalogMoney(selectedProgramPackage.total)}</span>
+                </>
+              ) : null}
+              {selectedProgramPackage.totalWithTax !== undefined ? (
+                <>
+                  <span>·</span>
+                  <span>Total with tax: {formatCatalogMoney(selectedProgramPackage.totalWithTax)}</span>
+                </>
+              ) : null}
+            </div>
+            {selectedProgramPackage.scheduleNotes ? (
+              <p className="mt-2 text-xs leading-5 text-blue-900">
+                {selectedProgramPackage.scheduleNotes}
+              </p>
+            ) : null}
+            {selectedProgramPackage.restrictions?.length ? (
+              <ul className="mt-2 list-inside list-disc space-y-1 text-xs leading-5 text-blue-900">
+                {selectedProgramPackage.restrictions.map((restriction) => (
+                  <li key={restriction}>{restriction}</li>
+                ))}
+              </ul>
+            ) : null}
+          </div>
+        ) : null}
 
         {values.language === "Other" ? (
           <Field
@@ -1059,30 +1412,19 @@ function StepContent({
     return (
       <div className="space-y-5">
         <FieldRow>
-          <NativeSelect
-            label="Schedule program"
-            required
-            value={values.scheduleProgramType ?? ""}
-            onChange={(value) => {
-              setField(
-                "scheduleProgramType",
-                value as EnrollmentFormValues["scheduleProgramType"]
-              );
-              setField("preferredDays", "");
-              setField("preferredTime", "");
-              setField("scheduleMode", privateEnrollment ? "fixed" : "");
-              setField("privateScheduleNotes", "");
-            }}
-            helper="Options are filtered by the enrollment type selected in Program."
-            error={errors.scheduleProgramType}
-          >
-            <option value="">Select schedule program</option>
-            {scheduleProgramOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </NativeSelect>
+          <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4 text-sm text-blue-950">
+            <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">
+              Schedule source
+            </p>
+            <p className="mt-1 font-semibold">
+              {selectedProgramPackage?.scheduleProgramType ??
+                values.scheduleProgramType ??
+                "Pending package selection"}
+            </p>
+            <p className="mt-1 text-xs leading-5 text-blue-900">
+              Schedule type is now inherited from the selected Package / Offer. Group availability will be selected from active groups in a later Admin Tools pass.
+            </p>
+          </div>
 
           {privateEnrollment ? (
             <NativeSelect
@@ -1108,13 +1450,19 @@ function StepContent({
                 </option>
               ))}
             </NativeSelect>
-          ) : null}
+          ) : (
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
+              <p className="font-semibold text-slate-900">Available groups</p>
+              <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                This will later show open groups from Admin Tools with available seats, tentative start date, days, and time.
+              </p>
+            </div>
+          )}
         </FieldRow>
 
         {scheduleProgramOptions.length === 0 ? (
           <div className="rounded-2xl border bg-amber-50 p-4 text-sm text-amber-900">
-            Select an enrollment type in the Program step first so the schedule
-            options can be filtered correctly.
+            Select a Package / Offer in the Program step first so schedule rules can be prepared.
           </div>
         ) : null}
 
@@ -1207,40 +1555,56 @@ function StepContent({
 
         <FieldRow>
           <Field
-            label="Tentative start date"
+            label={privateEnrollment ? "Tentative start date" : "Tentative group start date"}
             required
             value={values.tentativeStartDate ?? ""}
-            onChange={(value) => setField("tentativeStartDate", value)}
+            onChange={(value) => {
+              setField("tentativeStartDate", value);
+              setField(
+                "contractExpirationDate",
+                calculateContractExpirationDate(value, selectedProgramPackage)
+              );
+            }}
             type="date"
             error={errors.tentativeStartDate}
           />
-          <Field
-            label="Confirmed start date"
-            required
-            value={values.confirmedStartDate ?? ""}
-            onChange={(value) => setField("confirmedStartDate", value)}
-            type="date"
-            error={errors.confirmedStartDate}
-          />
+
+          {privateEnrollment ? (
+            <Field
+              label="Confirmed start date"
+              required
+              value={values.confirmedStartDate ?? ""}
+              onChange={(value) => setField("confirmedStartDate", value)}
+              type="date"
+              error={errors.confirmedStartDate}
+            />
+          ) : null}
         </FieldRow>
 
         <FieldRow>
-          <Field
-            label="Contract start date"
-            required
-            value={values.contractStartDate ?? ""}
-            onChange={(value) => setField("contractStartDate", value)}
-            type="date"
-            error={errors.contractStartDate}
-          />
-          <Field
-            label="Contract expiration date"
-            required
-            value={values.contractExpirationDate ?? ""}
-            onChange={(value) => setField("contractExpirationDate", value)}
-            type="date"
-            error={errors.contractExpirationDate}
-          />
+          <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4 text-sm text-blue-950">
+            <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">
+              Contract start date
+            </p>
+            <p className="mt-1 font-semibold">
+              {values.contractStartDate || values.enrollmentDate}
+            </p>
+            <p className="mt-1 text-xs leading-5 text-blue-900">
+              The contract starts on the enrollment date.
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4 text-sm text-blue-950">
+            <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">
+              Contract expiration date
+            </p>
+            <p className="mt-1 font-semibold">
+              {values.contractExpirationDate || "Select start date and package"}
+            </p>
+            <p className="mt-1 text-xs leading-5 text-blue-900">
+              Calculated automatically from the selected Package / Offer duration.
+            </p>
+          </div>
         </FieldRow>
       </div>
     );
@@ -1297,6 +1661,41 @@ function StepContent({
           ))}
         </NativeSelect>
 
+        {selectedProgramPackage ? (
+          <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4 text-sm text-blue-950">
+            <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">
+              Payment schedule preview
+            </p>
+
+            {knownPaymentBreakdown ? (
+              <div className="mt-2 space-y-1">
+                <p>
+                  <span className="font-semibold">Deposit:</span>{" "}
+                  {formatCatalogMoney(knownPaymentBreakdown.deposit)}
+                </p>
+                <p>
+                  <span className="font-semibold">At confirmation:</span>{" "}
+                  {formatCatalogMoney(knownPaymentBreakdown.confirmation)}
+                </p>
+                <p>
+                  <span className="font-semibold">Remaining payments:</span>{" "}
+                  {knownPaymentBreakdown.installmentCount} payments of{" "}
+                  {formatCatalogMoney(knownPaymentBreakdown.installmentAmount)}{" "}
+                  {knownPaymentBreakdown.cadence}
+                </p>
+                <p className="text-xs leading-5 text-blue-900">
+                  {knownPaymentBreakdown.note}
+                </p>
+              </div>
+            ) : (
+              <p className="mt-2 text-xs leading-5 text-blue-900">
+                This package has pricing loaded, but the exact deposit, confirmation payment,
+                and installment schedule still need payment setup confirmation before automation.
+              </p>
+            )}
+          </div>
+        ) : null}
+
         <div className="rounded-2xl border bg-amber-50 p-4 text-sm text-amber-900">
           {rules.requiresPaymentAuthorization
             ? "Payment authorization will be required for this payment plan."
@@ -1333,8 +1732,246 @@ function StepContent({
     );
   }
 
+  const agreementContact = getAgreementContact(values);
+  const agreementTotals = getAgreementTotals(values, selectedProgramPackage);
+
   return (
     <div className="space-y-5">
+      <Card className="rounded-2xl">
+        <CardHeader>
+          <CardTitle>Enrollment Agreement Preview</CardTitle>
+          <CardDescription>
+            Draft preview based on the current Berlitz enrollment agreement format.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="mx-auto max-w-[920px] border bg-white p-6 text-[12px] leading-tight text-black shadow-sm">
+            <div className="grid grid-cols-[1fr_1.3fr_1fr] gap-4">
+              <div>
+                <div className="mb-2 inline-flex rounded bg-black px-2 py-1 text-lg font-bold text-white">
+                  Berlitz
+                </div>
+                <p>282 Avenida Jesus T. Pinero</p>
+                <p>Ofic. 103 Plaza El Amal</p>
+                <p>Hato Rey, P.R. 00927</p>
+                <p>Puerto Rico</p>
+                <p>7877532585</p>
+              </div>
+
+              <div className="text-center">
+                <h3 className="text-2xl font-bold tracking-wide">ENROLLMENT AGREEMENT</h3>
+                <p className="mt-4">
+                  Customer ID: <span className="font-bold">{customerIdPreview ?? "Pending"}</span>
+                </p>
+                <p>
+                  Contract ID: <span className="font-bold">01</span>
+                </p>
+                <p className="mt-2">
+                  NTA AUTHORIZATION: ____________________
+                </p>
+              </div>
+
+              <div className="text-right">
+                <p>
+                  Agreement Date:{" "}
+                  <span className="font-bold">{formatAgreementDate(values.enrollmentDate)}</span>
+                </p>
+                <p className="mt-4">
+                  Contract Start Date:{" "}
+                  <span className="font-bold">
+                    {formatAgreementDate(values.contractStartDate || values.enrollmentDate)}
+                  </span>
+                </p>
+                <p>
+                  Contract Expiration Date:{" "}
+                  <span className="font-bold">
+                    {formatAgreementDate(values.contractExpirationDate)}
+                  </span>
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-2 grid min-h-36 grid-cols-[1.3fr_1fr] border-2 border-black p-2">
+              <div>
+                <p>
+                  Name:{" "}
+                  <span className="font-bold">
+                    {getAgreementStudentName(values) || "Pending student"}
+                    {values.modality ? ` (${values.modality.toUpperCase()})` : ""}
+                  </span>
+                </p>
+                <p className="mt-2">
+                  Address: <span className="font-bold">Pending address</span>
+                </p>
+                <p className="ml-12">Puerto Rico</p>
+                <p className="mt-6">Company:</p>
+                <p className="mt-3 text-center">Attention:</p>
+                <p className="text-center">E-Mail:</p>
+              </div>
+
+              <div>
+                <p>
+                  Day Phone: <span className="font-bold">{agreementContact.phone}</span>
+                </p>
+                <p className="mt-4">
+                  E-Mail: <span className="font-bold">{agreementContact.email}</span>
+                </p>
+                {agreementContact.relationship ? (
+                  <p className="mt-4">
+                    Relationship: <span className="font-bold">{agreementContact.relationship}</span>
+                  </p>
+                ) : null}
+                <p className="mt-4">Eve Phone:</p>
+                <p>Mobile Phone:</p>
+                <p>Corporate Number:</p>
+                <p>Phone:</p>
+              </div>
+            </div>
+
+            <div className="mt-2 grid grid-cols-3 gap-6">
+              <div className="space-y-2">
+                <p>
+                  Contract Lessons:{" "}
+                  <span className="float-right font-bold">{values.regularLessons || "0"}</span>
+                </p>
+                <p>
+                  Lesson Rate: <span className="float-right font-bold">{values.lessonRate}</span>
+                </p>
+                <p>Travel Units:</p>
+                <p>Travel Rate:</p>
+                <p>Company Percentage:</p>
+              </div>
+
+              <div className="space-y-2">
+                <p>
+                  Program:{" "}
+                  <span className="float-right font-bold">
+                    {selectedProgramPackage?.programFamily ?? selectedProgramPackage?.name ?? "Pending"}
+                  </span>
+                </p>
+                <p>
+                  Language: <span className="float-right font-bold">{values.language}</span>
+                </p>
+                <p>
+                  Lesson Type:{" "}
+                  <span className="float-right font-bold">
+                    {selectedProgramPackage?.classificationCode ?? values.enrollmentType}
+                  </span>
+                </p>
+                <p>
+                  Group:{" "}
+                  <span className="float-right font-bold">
+                    {selectedProgramPackage?.scheduleProgramType ?? "Pending"}
+                  </span>
+                </p>
+                <p>
+                  Number of Participants: <span className="font-bold">1</span>
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <p>
+                  Tuition:{" "}
+                  <span className="float-right font-bold">
+                    {formatCatalogMoney(agreementTotals.tuition)}
+                  </span>
+                </p>
+                <p>
+                  Registration:{" "}
+                  <span className="float-right font-bold">
+                    {formatCatalogMoney(agreementTotals.registration)}
+                  </span>
+                </p>
+                <p>
+                  Material:{" "}
+                  <span className="float-right font-bold">
+                    {formatCatalogMoney(agreementTotals.material)}
+                  </span>
+                </p>
+                <p>
+                  eLearning: <span className="float-right font-bold">$0.00</span>
+                </p>
+                <p>
+                  Travel Amount: <span className="float-right font-bold">$0.00</span>
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-3 grid grid-cols-[1.5fr_1fr] gap-8">
+              <div>
+                <p className="font-bold underline">Schedule of Lessons</p>
+                <div className="mt-1 grid grid-cols-[1fr_1fr_1fr_0.5fr] gap-2 font-bold">
+                  <span>Day</span>
+                  <span>Day Time</span>
+                  <span>Eve. Time</span>
+                  <span>Units</span>
+                </div>
+                {["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"].map(
+                  (day) => (
+                    <div key={day} className="grid grid-cols-[1fr_1fr_1fr_0.5fr] gap-2 border-b border-black/40 py-0.5">
+                      <span>{day}</span>
+                      <span>{values.preferredTime && values.preferredDays?.includes(day) ? values.preferredTime : ""}</span>
+                      <span>{selectedProgramPackage?.scheduleNotes?.includes(day) ? selectedProgramPackage.scheduleNotes : ""}</span>
+                      <span></span>
+                    </div>
+                  )
+                )}
+              </div>
+
+              <div className="self-end border-y-2 border-black py-2">
+                <p>
+                  Total Tax:{" "}
+                  <span className="float-right font-bold">{formatCatalogMoney(agreementTotals.tax)}</span>
+                </p>
+                <p className="text-base font-bold">
+                  Total:{" "}
+                  <span className="float-right">{formatCatalogMoney(agreementTotals.total)}</span>
+                </p>
+                <p className="mt-2 border-t border-black pt-1">
+                  <span className="font-bold">Deposit:</span> {values.deposit || "Pending"}
+                </p>
+                <p className="border-t border-black pt-1">
+                  <span className="font-bold">Balance:</span> Pending payment schedule
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-3 border-t-2 border-black pt-2">
+              <p className="text-center font-bold underline">TERMS AND CONDITIONS OF REGISTRATION</p>
+              <p className="text-center">PUERTO RICO</p>
+              <p className="mt-2">
+                1. Todo pago se hace por adelantado de acuerdo al plan de pagos acordado. Este plan puede requerir una tarjeta de credito como garantia.
+              </p>
+              <p>
+                2. Cada leccion dura 45 minutos, incluyendo un pequeno receso. Se programara al estudiante segun el programa seleccionado.
+              </p>
+              <p>
+                3. Berlitz podria monitorear/observar las clases con propositos de entrenamiento y para asegurar el control de calidad.
+              </p>
+              <p>
+                4. La matricula tiene vigencia segun el programa seleccionado y debe completarse a mas tardar en la fecha de expiracion indicada.
+              </p>
+              <p>
+                5. Una vez que el curso ha comenzado, aplican las politicas de reprogramacion, reembolso y recuperacion correspondientes.
+              </p>
+            </div>
+
+            <div className="mt-8 grid grid-cols-[1fr_0.35fr] gap-8">
+              <div>
+                <p>Customer Signature: __________________________________________</p>
+                <p className="mt-5">Registrar Signature: __________________________________________</p>
+              </div>
+              <div>
+                <p>Date: __________________</p>
+              </div>
+            </div>
+
+            <p className="mt-8">This center is independently owned and operated.</p>
+            <p className="mt-6 text-center">1</p>
+          </div>
+        </CardContent>
+      </Card>
+
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         <RequirementCard
           title="Enrollment Agreement"
@@ -1488,6 +2125,7 @@ export function EnrollmentWizardShell() {
     setValues((current) => ({
       ...current,
       enrollmentType: recommendedEnrollmentType,
+      selectedPackageId: "",
       modality: autoSelections.modality as EnrollmentFormValues["modality"],
       language: autoSelections.language as EnrollmentFormValues["language"],
       otherLanguage: "",

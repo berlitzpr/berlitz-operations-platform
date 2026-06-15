@@ -40,18 +40,35 @@ export const paymentPlanOptions = [
   { value: "custom", label: "Custom - Manager approval" },
 ] as const;
 
+export const parentGuardianRelationshipOptions = [
+  { value: "mother", label: "Mother" },
+  { value: "father", label: "Father" },
+  { value: "grandmother", label: "Grandmother" },
+  { value: "grandfather", label: "Grandfather" },
+  { value: "guardian", label: "Guardian" },
+  { value: "aunt", label: "Aunt" },
+  { value: "uncle", label: "Uncle" },
+  { value: "other", label: "Other" },
+] as const;
+
 export const enrollmentFormSchema = z
   .object({
     firstName: z.string().min(1, "First name is required."),
     lastName: z.string().min(1, "Last name is required."),
-    email: z.string().min(1, "Email is required.").email("Enter a valid email."),
-    mobilePhone: z.string().min(1, "Mobile phone is required."),
+    email: z.string().optional(),
+    mobilePhone: z.string().optional(),
+    childAge: z.string().optional(),
+    parentGuardianName: z.string().optional(),
+    parentGuardianRelationship: z.string().optional(),
+    parentGuardianPhone: z.string().optional(),
+    parentGuardianEmail: z.string().optional(),
     customerIdLast5: z
       .string()
       .regex(/^[0-9]{5}$/, "Customer ID must be exactly 5 digits."),
     enrollmentDate: z.string().min(1, "Enrollment date is required."),
 
     enrollmentType: z.string().min(1, "Enrollment type is required."),
+    selectedPackageId: z.string().optional(),
 
     modality: z.string().min(1, "Modality is required."),
 
@@ -96,6 +113,70 @@ export const enrollmentFormSchema = z
         message: "Other language is required.",
       });
     }
+
+    const isKidsEnrollment =
+      values.enrollmentType === "kids" ||
+      values.selectedPackageId?.includes("kids") ||
+      values.selectedPackageId?.includes("g3");
+
+    if (isKidsEnrollment) {
+      const requiredKidsFields = [
+        ["childAge", values.childAge, "Child age is required."],
+        ["parentGuardianName", values.parentGuardianName, "Parent/guardian name is required."],
+        [
+          "parentGuardianRelationship",
+          values.parentGuardianRelationship,
+          "Relationship to student is required.",
+        ],
+        ["parentGuardianPhone", values.parentGuardianPhone, "Parent/guardian phone is required."],
+        ["parentGuardianEmail", values.parentGuardianEmail, "Parent/guardian email is required."],
+      ] as const;
+
+      requiredKidsFields.forEach(([field, value, message]) => {
+        if (!value?.trim()) {
+          context.addIssue({
+            code: "custom",
+            path: [field],
+            message,
+          });
+        }
+      });
+
+      if (
+        values.parentGuardianEmail?.trim() &&
+        !z.string().email().safeParse(values.parentGuardianEmail).success
+      ) {
+        context.addIssue({
+          code: "custom",
+          path: ["parentGuardianEmail"],
+          message: "Enter a valid parent/guardian email.",
+        });
+      }
+
+      return;
+    }
+
+    if (!values.email?.trim()) {
+      context.addIssue({
+        code: "custom",
+        path: ["email"],
+        message: "Email is required.",
+      });
+    } else if (!z.string().email().safeParse(values.email).success) {
+      context.addIssue({
+        code: "custom",
+        path: ["email"],
+        message: "Enter a valid email.",
+      });
+    }
+
+    if (!values.mobilePhone?.trim()) {
+      context.addIssue({
+        code: "custom",
+        path: ["mobilePhone"],
+        message: "Mobile phone is required.",
+      });
+    }
   });
 
 export type EnrollmentFormValues = z.infer<typeof enrollmentFormSchema>;
@@ -110,10 +191,16 @@ export function getDefaultEnrollmentValues(): EnrollmentFormValues {
     lastName: "",
     email: "",
     mobilePhone: "",
+    childAge: "",
+    parentGuardianName: "",
+    parentGuardianRelationship: "",
+    parentGuardianPhone: "",
+    parentGuardianEmail: "",
     customerIdLast5: "",
     enrollmentDate: getTodayDateString(),
 
     enrollmentType: "",
+    selectedPackageId: "",
     modality: "",
     language: "",
     otherLanguage: "",
@@ -135,7 +222,7 @@ export function getDefaultEnrollmentValues(): EnrollmentFormValues {
     privateScheduleNotes: "",
     tentativeStartDate: "",
     confirmedStartDate: "",
-    contractStartDate: "",
+    contractStartDate: getTodayDateString(),
     contractExpirationDate: "",
 
     tuition: "",

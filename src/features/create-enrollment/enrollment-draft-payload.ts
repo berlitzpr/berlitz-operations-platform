@@ -48,8 +48,8 @@ export function buildEnrollmentDraftPayload(values: EnrollmentFormValues) {
       customer_id_last5: values.customerIdLast5,
       first_name: values.firstName.trim(),
       last_name: values.lastName.trim(),
-      email: values.email.trim(),
-      phone_mobile: values.mobilePhone?.trim() ?? "",
+      email: (values.parentGuardianEmail ?? values.email ?? "").trim(),
+      phone_mobile: (values.parentGuardianPhone ?? values.mobilePhone ?? "").trim(),
       country: "Puerto Rico",
     },
 

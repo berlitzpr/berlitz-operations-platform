@@ -1054,7 +1054,7 @@ export const programPackages: ProgramPackage[] = [
     scheduleNotes: "Monday, Tuesday & Thursday 6:45–9:00 PM. November 30–December 23, 2026.",
     sourceName: "2026 Winter G1 Offer",
     effectiveYear: 2026,
-    status: "seasonal",
+    status: "inactive",
   },
   {
     id: "winter_intensive_g1_adults_payment_plan_2026",
@@ -1082,7 +1082,7 @@ export const programPackages: ProgramPackage[] = [
     restrictions: ["Payment plan requires credit card guarantee."],
     sourceName: "2026 Winter G1 Offer",
     effectiveYear: 2026,
-    status: "seasonal",
+    status: "inactive",
   },
 
   {
