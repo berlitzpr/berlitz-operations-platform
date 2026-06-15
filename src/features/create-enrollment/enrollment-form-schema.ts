@@ -62,6 +62,10 @@ export const enrollmentFormSchema = z
     parentGuardianRelationship: z.string().optional(),
     parentGuardianPhone: z.string().optional(),
     parentGuardianEmail: z.string().optional(),
+    addressLine1: z.string().min(1, "Address is required."),
+    city: z.string().min(1, "City is required."),
+    postalCode: z.string().min(1, "Zip code is required."),
+    country: z.string().min(1, "Country is required."),
     customerIdLast5: z
       .string()
       .regex(/^[0-9]{5}$/, "Customer ID must be exactly 5 digits."),
@@ -196,6 +200,10 @@ export function getDefaultEnrollmentValues(): EnrollmentFormValues {
     parentGuardianRelationship: "",
     parentGuardianPhone: "",
     parentGuardianEmail: "",
+    addressLine1: "",
+    city: "",
+    postalCode: "",
+    country: "Puerto Rico",
     customerIdLast5: "",
     enrollmentDate: getTodayDateString(),
 

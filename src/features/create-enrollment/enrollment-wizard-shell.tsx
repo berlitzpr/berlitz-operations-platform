@@ -98,8 +98,8 @@ const wizardSteps: WizardStep[] = [
   },
   {
     id: "assignment",
-    title: "Assignment / Case",
-    description: "Automatic TBO assignment or Private Case creation.",
+    title: "Review & Routing",
+    description: "Confirm what the system will create after submission.",
     icon: UsersRound,
   },
   {
@@ -206,6 +206,7 @@ const fieldTextareaClassName =
 const helperTextClassName = "text-xs leading-5 text-muted-foreground";
 const errorTextClassName = "text-xs font-medium leading-5 text-red-600";
 const footerButtonClassName = "h-11 rounded-2xl px-5 font-semibold";
+const PR_TAX_RATE = 0.115;
 
 const privateLevelOptions = Array.from({ length: 10 }, (_, index) => {
   const level = String(index + 1);
@@ -327,6 +328,45 @@ function getGroupLevelOptions(programPackage: ProgramPackage | undefined) {
   return [];
 }
 
+function getSelectedWeekdayNumbers(preferredDays: string | undefined) {
+  const value = preferredDays ?? "";
+  const weekdays: Record<string, number> = {
+    sunday: 0,
+    monday: 1,
+    tuesday: 2,
+    wednesday: 3,
+    thursday: 4,
+    friday: 5,
+    saturday: 6,
+  };
+
+  return Object.entries(weekdays)
+    .filter(([day]) => value.toLowerCase().includes(day))
+    .map(([, weekday]) => weekday);
+}
+
+function isAllowedStartDate(startDate: string, preferredDays: string | undefined) {
+  if (!startDate) {
+    return true;
+  }
+
+  const selectedDate = new Date(`${startDate}T00:00:00`);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  if (selectedDate < today) {
+    return false;
+  }
+
+  const allowedWeekdays = getSelectedWeekdayNumbers(preferredDays);
+
+  if (allowedWeekdays.length === 0) {
+    return true;
+  }
+
+  return allowedWeekdays.includes(selectedDate.getDay());
+}
+
 function calculateContractExpirationDate(
   startDate: string,
   programPackage: ProgramPackage | undefined
@@ -381,9 +421,7 @@ function getAgreementTotals(values: EnrollmentFormValues, programPackage: Progra
   const registration = parseCatalogMoney(values.registrationFee);
   const material = parseCatalogMoney(values.materialFee);
   const subtotal = programPackage?.total ?? tuition + registration + material;
-  const tax = programPackage?.taxApplies && programPackage.taxRate
-    ? subtotal * programPackage.taxRate
-    : 0;
+  const tax = subtotal * (programPackage?.taxRate ?? PR_TAX_RATE);
   const total = programPackage?.totalWithTax ?? subtotal + tax;
 
   return {
@@ -425,6 +463,10 @@ const stepValidationFields: Record<string, (keyof EnrollmentFormValues)[]> = {
     "parentGuardianRelationship",
     "parentGuardianPhone",
     "parentGuardianEmail",
+    "addressLine1",
+    "city",
+    "postalCode",
+    "country",
     "customerIdLast5",
     "enrollmentDate",
   ],
@@ -773,6 +815,7 @@ function StepContent({
   const selectedProgramPackage = values.selectedPackageId
     ? getProgramPackageById(values.selectedPackageId)
     : undefined;
+  const agreementTotals = getAgreementTotals(values, selectedProgramPackage);
 
   const groupLevelOptions = getGroupLevelOptions(selectedProgramPackage);
   const knownPaymentBreakdown = getKnownPaymentBreakdown(selectedProgramPackage);
@@ -918,6 +961,44 @@ function StepContent({
             onChange={(value) => setField("lastName", formatNameInput(value))}
             placeholder="Enter last name"
             error={errors.lastName}
+          />
+        </FieldRow>
+
+        <FieldRow>
+          <Field
+            label="Address"
+            required
+            value={values.addressLine1 ?? ""}
+            onChange={(value) => setField("addressLine1", value)}
+            placeholder="Street address"
+            error={errors.addressLine1}
+          />
+          <Field
+            label="City"
+            required
+            value={values.city ?? ""}
+            onChange={(value) => setField("city", formatNameInput(value))}
+            placeholder="Guaynabo"
+            error={errors.city}
+          />
+        </FieldRow>
+
+        <FieldRow>
+          <Field
+            label="Zip code"
+            required
+            value={values.postalCode ?? ""}
+            onChange={(value) => setField("postalCode", value.replace(/\D/g, "").slice(0, 5))}
+            placeholder="00969"
+            error={errors.postalCode}
+          />
+          <Field
+            label="Country"
+            required
+            value={values.country ?? ""}
+            onChange={(value) => setField("country", value)}
+            placeholder="Puerto Rico"
+            error={errors.country}
           />
         </FieldRow>
 
@@ -1559,6 +1640,12 @@ function StepContent({
             required
             value={values.tentativeStartDate ?? ""}
             onChange={(value) => {
+              if (!isAllowedStartDate(value, values.preferredDays)) {
+                setField("tentativeStartDate", "");
+                setField("contractExpirationDate", "");
+                return;
+              }
+
               setField("tentativeStartDate", value);
               setField(
                 "contractExpirationDate",
@@ -1566,6 +1653,7 @@ function StepContent({
               );
             }}
             type="date"
+            helper="Start date cannot be in the past and must match the selected class days."
             error={errors.tentativeStartDate}
           />
 
@@ -1613,6 +1701,43 @@ function StepContent({
   if (stepId === "pricing") {
     return (
       <div className="space-y-5">
+        {selectedProgramPackage ? (
+          <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4 text-sm text-blue-950">
+            <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">
+              Program pricing summary
+            </p>
+            <div className="mt-3 grid gap-2 md:grid-cols-2">
+              <p>
+                <span className="font-semibold">Package:</span>{" "}
+                {selectedProgramPackage.name}
+              </p>
+              <p>
+                <span className="font-semibold">Classification:</span>{" "}
+                {selectedProgramPackage.classificationCode}
+              </p>
+              <p>
+                <span className="font-semibold">Tuition:</span>{" "}
+                {formatCatalogMoney(agreementTotals.tuition)}
+              </p>
+              <p>
+                <span className="font-semibold">Registration fee:</span>{" "}
+                {formatCatalogMoney(agreementTotals.registration)}
+              </p>
+              <p>
+                <span className="font-semibold">Material:</span>{" "}
+                {formatCatalogMoney(agreementTotals.material)}
+              </p>
+              <p>
+                <span className="font-semibold">IVU / Tax 11.5%:</span>{" "}
+                {formatCatalogMoney(agreementTotals.tax)}
+              </p>
+              <p className="text-base font-bold">
+                Total with tax: {formatCatalogMoney(agreementTotals.total)}
+              </p>
+            </div>
+          </div>
+        ) : null}
+
         <FieldRow>
           <Field
             label="Tuition"
@@ -1706,34 +1831,69 @@ function StepContent({
   }
 
   if (stepId === "assignment") {
+    const primaryRouting = rules.requiresPrivateCase
+      ? "Private Case"
+      : rules.requiresTbo
+        ? "TBO / Group routing"
+        : "Manual review";
+
     return (
-      <div className="grid gap-4 lg:grid-cols-2">
-        <RequirementCard
-          title="TBO assignment"
-          active={rules.requiresTbo}
-          description="For group enrollments, the system will attempt to match modality, program, level, schedule, start window, capacity, and quorum."
-        />
-        <RequirementCard
-          title="Private Case"
-          active={rules.requiresPrivateCase}
-          description="For private enrollments, the system will create a case for Customer Service with advisor and CSR tasks."
-        />
-        <RequirementCard
-          title="Manager approval"
-          active={rules.requiresManagerApproval}
-          description="Custom payment plans and future override scenarios will require manager approval."
-        />
-        <RequirementCard
-          title="Needs review fallback"
-          active
-          description="If no TBO match is found or key details are missing, the enrollment will be marked for operational review."
-        />
+      <div className="space-y-5">
+        <div className="rounded-2xl border border-blue-100 bg-blue-50 p-5 text-sm text-blue-950">
+          <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">
+            Routing summary
+          </p>
+          <h3 className="mt-2 text-lg font-semibold">{primaryRouting}</h3>
+          <p className="mt-2 leading-6 text-blue-900">
+            This step previews what the system will create after submission. Advisors do not need to manually choose a case type unless an exception is flagged.
+          </p>
+        </div>
+
+        <div className="grid gap-4 lg:grid-cols-2">
+          <RequirementCard
+            title="Enrollment Agreement"
+            active
+            description="The enrollment agreement preview will be generated from the selected package, student/contact details, schedule, and payment information."
+          />
+          <RequirementCard
+            title="TBO Checklist"
+            active={rules.requiresTbo}
+            description={
+              selectedProgramPackage
+                ? "This enrollment will be routed to TBO/group review using the selected package and schedule rules."
+                : "A package must be selected before group routing can be completed."
+            }
+          />
+          <RequirementCard
+            title="Private Case"
+            active={rules.requiresPrivateCase}
+            description="Private enrollments create a private case for Customer Service follow-up, schedule coordination, and required documents."
+          />
+          <RequirementCard
+            title="Payment authorization"
+            active={rules.requiresPaymentAuthorization}
+            description={
+              knownPaymentBreakdown
+                ? "Payment authorization will follow the configured payment schedule for this package."
+                : "Payment authorization may be required once the selected payment plan is confirmed."
+            }
+          />
+          <RequirementCard
+            title="Manager approval"
+            active={rules.requiresManagerApproval}
+            description="Custom payment plans and future override scenarios require manager approval."
+          />
+          <RequirementCard
+            title="Needs review fallback"
+            active
+            description="If a required match, group, payment rule, or document detail is missing, the enrollment will be marked for operational review."
+          />
+        </div>
       </div>
     );
   }
 
   const agreementContact = getAgreementContact(values);
-  const agreementTotals = getAgreementTotals(values, selectedProgramPackage);
 
   return (
     <div className="space-y-5">
@@ -1801,9 +1961,12 @@ function StepContent({
                   </span>
                 </p>
                 <p className="mt-2">
-                  Address: <span className="font-bold">Pending address</span>
+                  Address: <span className="font-bold">{values.addressLine1 || "Pending address"}</span>
                 </p>
-                <p className="ml-12">Puerto Rico</p>
+                <p className="ml-12">
+                  {[values.city, values.postalCode].filter(Boolean).join(", ")}
+                </p>
+                <p className="ml-12">{values.country || "Puerto Rico"}</p>
                 <p className="mt-6">Company:</p>
                 <p className="mt-3 text-center">Attention:</p>
                 <p className="text-center">E-Mail:</p>
