@@ -1898,52 +1898,68 @@ function StepContent({
   return (
     <div className="space-y-5">
       <Card className="rounded-2xl">
-        <CardHeader>
-          <CardTitle>Enrollment Agreement Preview</CardTitle>
-          <CardDescription>
-            Draft preview based on the current Berlitz enrollment agreement format.
-          </CardDescription>
+        <CardHeader className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div>
+            <CardTitle>Enrollment Agreement Preview</CardTitle>
+            <CardDescription>
+              Print-ready draft based on the current Berlitz enrollment agreement format.
+            </CardDescription>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            className="h-10 rounded-2xl px-4 font-semibold"
+            onClick={() => window.print()}
+          >
+            Print / Save PDF
+          </Button>
         </CardHeader>
         <CardContent>
-          <div className="mx-auto max-w-[920px] border bg-white p-6 text-[12px] leading-tight text-black shadow-sm">
-            <div className="grid grid-cols-[1fr_1.3fr_1fr] gap-4">
+          <div className="mx-auto max-w-[940px] border border-slate-300 bg-white p-7 text-[11px] leading-[1.22] text-slate-950 shadow-sm print:max-w-none print:border-0 print:p-0 print:shadow-none">
+            <div className="grid grid-cols-[1fr_1.35fr_1fr] items-start gap-5 border-b-2 border-slate-950 pb-3">
               <div>
-                <div className="mb-2 inline-flex rounded bg-black px-2 py-1 text-lg font-bold text-white">
-                  Berlitz
+                <div className="flex items-baseline gap-1">
+                  <span className="text-3xl font-black tracking-[-0.03em] text-[#0057B8]">
+                    Berlitz
+                  </span>
+                  <span className="text-xs font-bold text-[#0057B8]">R</span>
                 </div>
-                <p>282 Avenida Jesus T. Pinero</p>
-                <p>Ofic. 103 Plaza El Amal</p>
-                <p>Hato Rey, P.R. 00927</p>
-                <p>Puerto Rico</p>
-                <p>7877532585</p>
+                <div className="mt-2 space-y-0.5 text-[10px] leading-tight text-slate-700">
+                  <p>282 Avenida Jesus T. Pinero</p>
+                  <p>Ofic. 103 Plaza El Amal</p>
+                  <p>Hato Rey, P.R. 00927</p>
+                  <p>Puerto Rico</p>
+                  <p>787-753-2585</p>
+                </div>
               </div>
 
               <div className="text-center">
-                <h3 className="text-2xl font-bold tracking-wide">ENROLLMENT AGREEMENT</h3>
-                <p className="mt-4">
-                  Customer ID: <span className="font-bold">{customerIdPreview ?? "Pending"}</span>
-                </p>
-                <p>
-                  Contract ID: <span className="font-bold">01</span>
-                </p>
-                <p className="mt-2">
-                  NTA AUTHORIZATION: ____________________
-                </p>
+                <h3 className="text-[22px] font-black uppercase tracking-[0.08em]">
+                  Enrollment Agreement
+                </h3>
+                <div className="mx-auto mt-3 grid max-w-[330px] grid-cols-[1fr_auto] gap-x-3 gap-y-1 text-left">
+                  <span className="text-slate-600">Customer ID</span>
+                  <span className="font-bold">{customerIdPreview ?? "Pending"}</span>
+                  <span className="text-slate-600">Contract ID</span>
+                  <span className="font-bold">01</span>
+                  <span className="text-slate-600">NTA Authorization</span>
+                  <span className="min-w-28 border-b border-slate-950">&nbsp;</span>
+                </div>
               </div>
 
-              <div className="text-right">
+              <div className="space-y-1 text-right">
                 <p>
-                  Agreement Date:{" "}
+                  <span className="text-slate-600">Agreement Date:</span>{" "}
                   <span className="font-bold">{formatAgreementDate(values.enrollmentDate)}</span>
                 </p>
-                <p className="mt-4">
-                  Contract Start Date:{" "}
+                <p>
+                  <span className="text-slate-600">Contract Start:</span>{" "}
                   <span className="font-bold">
                     {formatAgreementDate(values.contractStartDate || values.enrollmentDate)}
                   </span>
                 </p>
                 <p>
-                  Contract Expiration Date:{" "}
+                  <span className="text-slate-600">Expiration:</span>{" "}
                   <span className="font-bold">
                     {formatAgreementDate(values.contractExpirationDate)}
                   </span>
@@ -1951,186 +1967,217 @@ function StepContent({
               </div>
             </div>
 
-            <div className="mt-2 grid min-h-36 grid-cols-[1.3fr_1fr] border-2 border-black p-2">
-              <div>
+            <div className="mt-3 grid grid-cols-[1.25fr_0.9fr] gap-3">
+              <section className="rounded-md border border-slate-950 p-3">
                 <p>
-                  Name:{" "}
+                  <span className="text-slate-600">Student:</span>{" "}
                   <span className="font-bold">
                     {getAgreementStudentName(values) || "Pending student"}
                     {values.modality ? ` (${values.modality.toUpperCase()})` : ""}
                   </span>
                 </p>
-                <p className="mt-2">
-                  Address: <span className="font-bold">{values.addressLine1 || "Pending address"}</span>
-                </p>
-                <p className="ml-12">
-                  {[values.city, values.postalCode].filter(Boolean).join(", ")}
-                </p>
-                <p className="ml-12">{values.country || "Puerto Rico"}</p>
-                <p className="mt-6">Company:</p>
-                <p className="mt-3 text-center">Attention:</p>
-                <p className="text-center">E-Mail:</p>
-              </div>
+                <div className="mt-2 grid grid-cols-[70px_1fr] gap-y-0.5">
+                  <span className="text-slate-600">Address:</span>
+                  <span className="font-medium">{values.addressLine1 || "Pending address"}</span>
+                  <span />
+                  <span>
+                    {[values.city, values.postalCode].filter(Boolean).join(", ")}
+                  </span>
+                  <span />
+                  <span>{values.country || "Puerto Rico"}</span>
+                </div>
+                <div className="mt-3 grid grid-cols-[70px_1fr] gap-y-0.5">
+                  <span className="text-slate-600">Company:</span>
+                  <span className="border-b border-slate-300">&nbsp;</span>
+                  <span className="text-slate-600">Attention:</span>
+                  <span className="border-b border-slate-300">&nbsp;</span>
+                </div>
+              </section>
 
-              <div>
-                <p>
-                  Day Phone: <span className="font-bold">{agreementContact.phone}</span>
-                </p>
-                <p className="mt-4">
-                  E-Mail: <span className="font-bold">{agreementContact.email}</span>
-                </p>
-                {agreementContact.relationship ? (
-                  <p className="mt-4">
-                    Relationship: <span className="font-bold">{agreementContact.relationship}</span>
-                  </p>
-                ) : null}
-                <p className="mt-4">Eve Phone:</p>
-                <p>Mobile Phone:</p>
-                <p>Corporate Number:</p>
-                <p>Phone:</p>
-              </div>
+              <section className="rounded-md border border-slate-950 p-3">
+                <div className="grid grid-cols-[95px_1fr] gap-y-1">
+                  <span className="text-slate-600">Day Phone:</span>
+                  <span className="font-bold">{agreementContact.phone || "Pending"}</span>
+                  <span className="text-slate-600">E-Mail:</span>
+                  <span className="break-all font-bold">{agreementContact.email || "Pending"}</span>
+                  {agreementContact.relationship ? (
+                    <>
+                      <span className="text-slate-600">Relationship:</span>
+                      <span className="font-bold">{agreementContact.relationship}</span>
+                    </>
+                  ) : null}
+                  <span className="text-slate-600">Eve Phone:</span>
+                  <span />
+                  <span className="text-slate-600">Mobile:</span>
+                  <span />
+                  <span className="text-slate-600">Corporate No.:</span>
+                  <span />
+                </div>
+              </section>
             </div>
 
-            <div className="mt-2 grid grid-cols-3 gap-6">
-              <div className="space-y-2">
-                <p>
-                  Contract Lessons:{" "}
-                  <span className="float-right font-bold">{values.regularLessons || "0"}</span>
-                </p>
-                <p>
-                  Lesson Rate: <span className="float-right font-bold">{values.lessonRate}</span>
-                </p>
-                <p>Travel Units:</p>
-                <p>Travel Rate:</p>
-                <p>Company Percentage:</p>
-              </div>
+            <div className="mt-3 grid grid-cols-[1fr_1.1fr_0.95fr] gap-3">
+              <section className="rounded-md border border-slate-300 p-3">
+                <h4 className="mb-2 border-b border-slate-300 pb-1 text-xs font-bold uppercase tracking-wide">
+                  Lessons
+                </h4>
+                <div className="grid grid-cols-[1fr_auto] gap-y-1">
+                  <span>Contract Lessons</span>
+                  <span className="font-bold">{values.regularLessons || "0"}</span>
+                  <span>Lesson Rate</span>
+                  <span className="font-bold">{values.lessonRate || "$0.00"}</span>
+                  <span>Travel Units</span>
+                  <span>-</span>
+                  <span>Travel Rate</span>
+                  <span>-</span>
+                </div>
+              </section>
 
-              <div className="space-y-2">
-                <p>
-                  Program:{" "}
-                  <span className="float-right font-bold">
-                    {selectedProgramPackage?.programFamily ?? selectedProgramPackage?.name ?? "Pending"}
+              <section className="rounded-md border border-slate-300 p-3">
+                <h4 className="mb-2 border-b border-slate-300 pb-1 text-xs font-bold uppercase tracking-wide">
+                  Program
+                </h4>
+                <div className="grid grid-cols-[78px_1fr] gap-y-1">
+                  <span className="text-slate-600">Package:</span>
+                  <span className="font-bold">
+                    {selectedProgramPackage?.name ?? "Pending package"}
                   </span>
-                </p>
-                <p>
-                  Language: <span className="float-right font-bold">{values.language}</span>
-                </p>
-                <p>
-                  Lesson Type:{" "}
-                  <span className="float-right font-bold">
+                  <span className="text-slate-600">Language:</span>
+                  <span className="font-bold">{values.language || "Pending"}</span>
+                  <span className="text-slate-600">Level:</span>
+                  <span className="font-bold">{values.level || "Pending"}</span>
+                  <span className="text-slate-600">Type:</span>
+                  <span className="font-bold">
                     {selectedProgramPackage?.classificationCode ?? values.enrollmentType}
                   </span>
-                </p>
-                <p>
-                  Group:{" "}
-                  <span className="float-right font-bold">
+                  <span className="text-slate-600">Group:</span>
+                  <span className="font-bold">
                     {selectedProgramPackage?.scheduleProgramType ?? "Pending"}
                   </span>
-                </p>
-                <p>
-                  Number of Participants: <span className="font-bold">1</span>
-                </p>
-              </div>
+                </div>
+              </section>
 
-              <div className="space-y-2">
-                <p>
-                  Tuition:{" "}
-                  <span className="float-right font-bold">
-                    {formatCatalogMoney(agreementTotals.tuition)}
-                  </span>
-                </p>
-                <p>
-                  Registration:{" "}
-                  <span className="float-right font-bold">
+              <section className="rounded-md border border-slate-300 p-3">
+                <h4 className="mb-2 border-b border-slate-300 pb-1 text-xs font-bold uppercase tracking-wide">
+                  Charges
+                </h4>
+                <div className="grid grid-cols-[1fr_auto] gap-y-1">
+                  <span>Tuition</span>
+                  <span className="font-bold">{formatCatalogMoney(agreementTotals.tuition)}</span>
+                  <span>Registration</span>
+                  <span className="font-bold">
                     {formatCatalogMoney(agreementTotals.registration)}
                   </span>
-                </p>
-                <p>
-                  Material:{" "}
-                  <span className="float-right font-bold">
-                    {formatCatalogMoney(agreementTotals.material)}
-                  </span>
-                </p>
-                <p>
-                  eLearning: <span className="float-right font-bold">$0.00</span>
-                </p>
-                <p>
-                  Travel Amount: <span className="float-right font-bold">$0.00</span>
-                </p>
-              </div>
+                  <span>Material</span>
+                  <span className="font-bold">{formatCatalogMoney(agreementTotals.material)}</span>
+                  <span>eLearning</span>
+                  <span className="font-bold">$0.00</span>
+                  <span>Travel Amount</span>
+                  <span className="font-bold">$0.00</span>
+                </div>
+              </section>
             </div>
 
-            <div className="mt-3 grid grid-cols-[1.5fr_1fr] gap-8">
-              <div>
-                <p className="font-bold underline">Schedule of Lessons</p>
-                <div className="mt-1 grid grid-cols-[1fr_1fr_1fr_0.5fr] gap-2 font-bold">
-                  <span>Day</span>
+            <div className="mt-3 grid grid-cols-[1.35fr_0.85fr] gap-4">
+              <section className="rounded-md border border-slate-300 p-3">
+                <div className="mb-2 grid grid-cols-[1fr_1fr_1fr_0.45fr] gap-2 border-b border-slate-300 pb-1 text-xs font-bold uppercase tracking-wide">
+                  <span>Schedule of Lessons</span>
                   <span>Day Time</span>
                   <span>Eve. Time</span>
                   <span>Units</span>
                 </div>
                 {["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"].map(
-                  (day) => (
-                    <div key={day} className="grid grid-cols-[1fr_1fr_1fr_0.5fr] gap-2 border-b border-black/40 py-0.5">
-                      <span>{day}</span>
-                      <span>{values.preferredTime && values.preferredDays?.includes(day) ? values.preferredTime : ""}</span>
-                      <span>{selectedProgramPackage?.scheduleNotes?.includes(day) ? selectedProgramPackage.scheduleNotes : ""}</span>
-                      <span></span>
-                    </div>
-                  )
+                  (day) => {
+                    const selected = values.preferredDays
+                      ?.toLowerCase()
+                      .includes(day.toLowerCase());
+
+                    return (
+                      <div
+                        key={day}
+                        className="grid grid-cols-[1fr_1fr_1fr_0.45fr] gap-2 border-b border-slate-200 py-1"
+                      >
+                        <span className={selected ? "font-bold" : ""}>
+                          {selected ? "x " : ""}
+                          {day}
+                        </span>
+                        <span>{selected ? values.preferredTime : ""}</span>
+                        <span />
+                        <span />
+                      </div>
+                    );
+                  }
                 )}
-              </div>
+              </section>
 
-              <div className="self-end border-y-2 border-black py-2">
+              <section className="self-end rounded-md border-2 border-slate-950 p-3">
+                <div className="grid grid-cols-[1fr_auto] gap-y-1">
+                  <span>Total Tax / IVU</span>
+                  <span className="font-bold">{formatCatalogMoney(agreementTotals.tax)}</span>
+                  <span className="text-base font-black">Total</span>
+                  <span className="text-base font-black">
+                    {formatCatalogMoney(agreementTotals.total)}
+                  </span>
+                </div>
+                <div className="mt-2 border-t border-slate-950 pt-2">
+                  <p>
+                    <span className="font-bold">Deposit:</span>{" "}
+                    {values.deposit || "Pending"}
+                  </p>
+                  <p className="mt-1">
+                    <span className="font-bold">Balance:</span>{" "}
+                    {knownPaymentBreakdown
+                      ? `${formatCatalogMoney(knownPaymentBreakdown.confirmation)} at confirmation + ${knownPaymentBreakdown.installmentCount} payments of ${formatCatalogMoney(knownPaymentBreakdown.installmentAmount)} ${knownPaymentBreakdown.cadence}`
+                      : values.deposit
+                        ? formatCatalogMoney(
+                            Math.max(agreementTotals.total - parseCatalogMoney(values.deposit), 0)
+                          )
+                        : "Pending payment schedule"}
+                  </p>
+                </div>
+              </section>
+            </div>
+
+            <section className="mt-3 rounded-md border border-slate-300 p-3">
+              <h4 className="text-center text-xs font-black uppercase tracking-wide underline">
+                Terms and Conditions of Registration - Puerto Rico
+              </h4>
+              <ol className="mt-2 grid gap-1 text-[9.5px] leading-[1.2] text-slate-800">
+                <li>1. Todo pago se hace por adelantado de acuerdo al plan de pagos acordado. Este plan requiere de una tarjeta de credito como garantia cuando aplique.</li>
+                <li>2. Cada leccion dura 45 minutos, incluyendo un pequeno receso. Se programara al estudiante por un minimo de dos lecciones consecutivas por dia cuando aplique.</li>
+                <li>3. Berlitz podria monitorear u observar las clases con propositos de entrenamiento y control de calidad.</li>
+                <li>4. La matricula tiene vigencia segun el programa seleccionado. El curso debe completarse no mas tarde de la fecha de expiracion indicada.</li>
+                <li>5. Los estudiantes de cursos privados deben solicitar reprogramaciones dentro del termino establecido por la politica vigente.</li>
+                <li>6. Los reembolsos, transferencias, clases de recuperacion y balances no tomados se manejaran de acuerdo con el tipo de programa y las politicas de Berlitz Puerto Rico.</li>
+                <li>7. Para grupos y semi-privados, la fecha de comienzo puede variar segun la cantidad de estudiantes matriculados y la disponibilidad del grupo.</li>
+                <li>8. Una vez el curso ha comenzado, no se conceden reembolsos ni cambios, y el estudiante acuerda pagar la totalidad del precio del curso.</li>
+                <li>9. Berlitz se reserva el derecho de adelantar el cobro de la totalidad del curso o referir la cuenta a agencias pertinentes si fuese necesario.</li>
+              </ol>
+            </section>
+
+            <div className="mt-6 grid grid-cols-[1fr_0.3fr] gap-8">
+              <div className="space-y-5">
                 <p>
-                  Total Tax:{" "}
-                  <span className="float-right font-bold">{formatCatalogMoney(agreementTotals.tax)}</span>
+                  Customer Signature:
+                  <span className="ml-2 inline-block w-72 border-b border-slate-950">&nbsp;</span>
                 </p>
-                <p className="text-base font-bold">
-                  Total:{" "}
-                  <span className="float-right">{formatCatalogMoney(agreementTotals.total)}</span>
+                <p>
+                  Registrar Signature:
+                  <span className="ml-2 inline-block w-72 border-b border-slate-950">&nbsp;</span>
                 </p>
-                <p className="mt-2 border-t border-black pt-1">
-                  <span className="font-bold">Deposit:</span> {values.deposit || "Pending"}
-                </p>
-                <p className="border-t border-black pt-1">
-                  <span className="font-bold">Balance:</span> Pending payment schedule
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-3 border-t-2 border-black pt-2">
-              <p className="text-center font-bold underline">TERMS AND CONDITIONS OF REGISTRATION</p>
-              <p className="text-center">PUERTO RICO</p>
-              <p className="mt-2">
-                1. Todo pago se hace por adelantado de acuerdo al plan de pagos acordado. Este plan puede requerir una tarjeta de credito como garantia.
-              </p>
-              <p>
-                2. Cada leccion dura 45 minutos, incluyendo un pequeno receso. Se programara al estudiante segun el programa seleccionado.
-              </p>
-              <p>
-                3. Berlitz podria monitorear/observar las clases con propositos de entrenamiento y para asegurar el control de calidad.
-              </p>
-              <p>
-                4. La matricula tiene vigencia segun el programa seleccionado y debe completarse a mas tardar en la fecha de expiracion indicada.
-              </p>
-              <p>
-                5. Una vez que el curso ha comenzado, aplican las politicas de reprogramacion, reembolso y recuperacion correspondientes.
-              </p>
-            </div>
-
-            <div className="mt-8 grid grid-cols-[1fr_0.35fr] gap-8">
-              <div>
-                <p>Customer Signature: __________________________________________</p>
-                <p className="mt-5">Registrar Signature: __________________________________________</p>
               </div>
               <div>
-                <p>Date: __________________</p>
+                <p>
+                  Date:
+                  <span className="ml-2 inline-block w-28 border-b border-slate-950">&nbsp;</span>
+                </p>
               </div>
             </div>
 
-            <p className="mt-8">This center is independently owned and operated.</p>
-            <p className="mt-6 text-center">1</p>
+            <div className="mt-7 flex items-end justify-between text-[10px] text-slate-700">
+              <p>This center is independently owned and operated.</p>
+              <p>1</p>
+            </div>
           </div>
         </CardContent>
       </Card>
