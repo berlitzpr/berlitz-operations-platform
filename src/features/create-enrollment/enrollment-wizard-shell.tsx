@@ -97,15 +97,9 @@ const wizardSteps: WizardStep[] = [
     icon: CreditCard,
   },
   {
-    id: "assignment",
-    title: "Review & Routing",
-    description: "Confirm what the system will create after submission.",
-    icon: UsersRound,
-  },
-  {
     id: "documents",
-    title: "Documents",
-    description: "Required enrollment documents and checklist preview.",
+    title: "Review",
+    description: "Agreement, routing, documents, and final checklist preview.",
     icon: ClipboardCheck,
   },
 ];
@@ -206,7 +200,6 @@ const fieldTextareaClassName =
 const helperTextClassName = "text-xs leading-5 text-muted-foreground";
 const errorTextClassName = "text-xs font-medium leading-5 text-red-600";
 const footerButtonClassName = "h-11 rounded-2xl px-5 font-semibold";
-const PR_TAX_RATE = 0.115;
 
 const privateLevelOptions = Array.from({ length: 10 }, (_, index) => {
   const level = String(index + 1);
@@ -258,7 +251,16 @@ function isPrivateAcademicProgram(values: Pick<EnrollmentFormValues, "enrollment
 }
 
 function formatCatalogMoney(value: number | undefined) {
-  return value === undefined ? "" : `$${value.toFixed(2)}`;
+  if (value === undefined) {
+    return "";
+  }
+
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value);
 }
 
 function parseCatalogMoney(value: string | undefined) {
@@ -326,6 +328,22 @@ function getGroupLevelOptions(programPackage: ProgramPackage | undefined) {
   }
 
   return [];
+}
+
+function getAgreementScheduleCode(programPackage: ProgramPackage | undefined) {
+  return programPackage?.classificationCode ?? "Pending";
+}
+
+function getSelectedScheduleDays(preferredDays: string | undefined) {
+  if (!preferredDays) {
+    return [];
+  }
+
+  const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+
+  return days.filter((day) =>
+    preferredDays.toLowerCase().includes(day.toLowerCase())
+  );
 }
 
 function getSelectedWeekdayNumbers(preferredDays: string | undefined) {
@@ -421,13 +439,18 @@ function getAgreementTotals(values: EnrollmentFormValues, programPackage: Progra
   const registration = parseCatalogMoney(values.registrationFee);
   const material = parseCatalogMoney(values.materialFee);
   const subtotal = programPackage?.total ?? tuition + registration + material;
-  const tax = subtotal * (programPackage?.taxRate ?? PR_TAX_RATE);
+  const stateTax = subtotal * 0.105;
+  const municipalTax = subtotal * 0.01;
+  const tax = stateTax + municipalTax;
   const total = programPackage?.totalWithTax ?? subtotal + tax;
 
   return {
     tuition,
     registration,
     material,
+    subtotal,
+    stateTax,
+    municipalTax,
     tax,
     total,
   };
@@ -985,20 +1008,20 @@ function StepContent({
 
         <FieldRow>
           <Field
-            label="Zip code"
-            required
-            value={values.postalCode ?? ""}
-            onChange={(value) => setField("postalCode", value.replace(/\D/g, "").slice(0, 5))}
-            placeholder="00969"
-            error={errors.postalCode}
-          />
-          <Field
             label="Country"
             required
             value={values.country ?? ""}
             onChange={(value) => setField("country", value)}
             placeholder="Puerto Rico"
             error={errors.country}
+          />
+          <Field
+            label="Zip code"
+            required
+            value={values.postalCode ?? ""}
+            onChange={(value) => setField("postalCode", value.replace(/\D/g, "").slice(0, 5))}
+            placeholder="00969"
+            error={errors.postalCode}
           />
         </FieldRow>
 
@@ -1498,9 +1521,7 @@ function StepContent({
               Schedule source
             </p>
             <p className="mt-1 font-semibold">
-              {selectedProgramPackage?.scheduleProgramType ??
-                values.scheduleProgramType ??
-                "Pending package selection"}
+              {getAgreementScheduleCode(selectedProgramPackage)}
             </p>
             <p className="mt-1 text-xs leading-5 text-blue-900">
               Schedule type is now inherited from the selected Package / Offer. Group availability will be selected from active groups in a later Admin Tools pass.
@@ -1641,6 +1662,9 @@ function StepContent({
             value={values.tentativeStartDate ?? ""}
             onChange={(value) => {
               if (!isAllowedStartDate(value, values.preferredDays)) {
+                window.alert(
+                  "The selected start date is not valid. It must not be in the past and must match the student's selected class days. Please choose a valid date."
+                );
                 setField("tentativeStartDate", "");
                 setField("contractExpirationDate", "");
                 return;
@@ -1712,8 +1736,8 @@ function StepContent({
                 {selectedProgramPackage.name}
               </p>
               <p>
-                <span className="font-semibold">Classification:</span>{" "}
-                {selectedProgramPackage.classificationCode}
+                <span className="font-semibold">Code:</span>{" "}
+                {getAgreementScheduleCode(selectedProgramPackage)}
               </p>
               <p>
                 <span className="font-semibold">Tuition:</span>{" "}
@@ -1728,11 +1752,19 @@ function StepContent({
                 {formatCatalogMoney(agreementTotals.material)}
               </p>
               <p>
-                <span className="font-semibold">IVU / Tax 11.5%:</span>{" "}
-                {formatCatalogMoney(agreementTotals.tax)}
+                <span className="font-semibold">Subtotal:</span>{" "}
+                {formatCatalogMoney(agreementTotals.subtotal)}
+              </p>
+              <p>
+                <span className="font-semibold">State Tax 10.5%:</span>{" "}
+                {formatCatalogMoney(agreementTotals.stateTax)}
+              </p>
+              <p>
+                <span className="font-semibold">Municipal Tax 1%:</span>{" "}
+                {formatCatalogMoney(agreementTotals.municipalTax)}
               </p>
               <p className="text-base font-bold">
-                Total with tax: {formatCatalogMoney(agreementTotals.total)}
+                Total: {formatCatalogMoney(agreementTotals.total)}
               </p>
             </div>
           </div>
@@ -2046,13 +2078,9 @@ function StepContent({
                   <span className="font-bold">{values.language || "Pending"}</span>
                   <span className="text-slate-600">Level:</span>
                   <span className="font-bold">{values.level || "Pending"}</span>
-                  <span className="text-slate-600">Type:</span>
+                  <span className="text-slate-600">Code:</span>
                   <span className="font-bold">
-                    {selectedProgramPackage?.classificationCode ?? values.enrollmentType}
-                  </span>
-                  <span className="text-slate-600">Group:</span>
-                  <span className="font-bold">
-                    {selectedProgramPackage?.scheduleProgramType ?? "Pending"}
+                    {getAgreementScheduleCode(selectedProgramPackage)}
                   </span>
                 </div>
               </section>
@@ -2080,40 +2108,32 @@ function StepContent({
 
             <div className="mt-3 grid grid-cols-[1.35fr_0.85fr] gap-4">
               <section className="rounded-md border border-slate-300 p-3">
-                <div className="mb-2 grid grid-cols-[1fr_1fr_1fr_0.45fr] gap-2 border-b border-slate-300 pb-1 text-xs font-bold uppercase tracking-wide">
+                <div className="mb-2 grid grid-cols-[1fr_1fr] gap-2 border-b border-slate-300 pb-1 text-xs font-bold uppercase tracking-wide">
                   <span>Schedule of Lessons</span>
-                  <span>Day Time</span>
-                  <span>Eve. Time</span>
-                  <span>Units</span>
+                  <span>Time</span>
                 </div>
-                {["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"].map(
-                  (day) => {
-                    const selected = values.preferredDays
-                      ?.toLowerCase()
-                      .includes(day.toLowerCase());
-
-                    return (
-                      <div
-                        key={day}
-                        className="grid grid-cols-[1fr_1fr_1fr_0.45fr] gap-2 border-b border-slate-200 py-1"
-                      >
-                        <span className={selected ? "font-bold" : ""}>
-                          {selected ? "x " : ""}
-                          {day}
-                        </span>
-                        <span>{selected ? values.preferredTime : ""}</span>
-                        <span />
-                        <span />
-                      </div>
-                    );
-                  }
-                )}
+                {(getSelectedScheduleDays(values.preferredDays).length
+                  ? getSelectedScheduleDays(values.preferredDays)
+                  : ["Pending schedule"]
+                ).map((day) => (
+                  <div
+                    key={day}
+                    className="grid grid-cols-[1fr_1fr] gap-2 border-b border-slate-200 py-1"
+                  >
+                    <span className="font-bold">{day}</span>
+                    <span>{day === "Pending schedule" ? "" : values.preferredTime}</span>
+                  </div>
+                ))}
               </section>
 
               <section className="self-end rounded-md border-2 border-slate-950 p-3">
                 <div className="grid grid-cols-[1fr_auto] gap-y-1">
-                  <span>Total Tax / IVU</span>
-                  <span className="font-bold">{formatCatalogMoney(agreementTotals.tax)}</span>
+                  <span>Subtotal</span>
+                  <span className="font-bold">{formatCatalogMoney(agreementTotals.subtotal)}</span>
+                  <span>State Tax 10.5%</span>
+                  <span className="font-bold">{formatCatalogMoney(agreementTotals.stateTax)}</span>
+                  <span>Municipal Tax 1%</span>
+                  <span className="font-bold">{formatCatalogMoney(agreementTotals.municipalTax)}</span>
                   <span className="text-base font-black">Total</span>
                   <span className="text-base font-black">
                     {formatCatalogMoney(agreementTotals.total)}
@@ -2162,7 +2182,7 @@ function StepContent({
                   <span className="ml-2 inline-block w-72 border-b border-slate-950">&nbsp;</span>
                 </p>
                 <p>
-                  Registrar Signature:
+                  Salesperson Signature:
                   <span className="ml-2 inline-block w-72 border-b border-slate-950">&nbsp;</span>
                 </p>
               </div>
