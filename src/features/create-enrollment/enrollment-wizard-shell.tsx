@@ -1809,11 +1809,13 @@ function StepContent({
           ) : null}
 
           <div className="mt-4 rounded-2xl border bg-amber-50 p-4 text-sm text-amber-900">
-            {values.paymentPlan === "custom"
-              ? "Manager approval is required for this custom payment plan."
-              : values.paymentPlan && values.paymentPlan !== "full_paid"
-                ? "Payment schedule details are required for this payment plan."
-                : "Full Paid selected. Payment schedule details are not required."}
+            {!values.paymentPlan
+              ? "Select a payment plan to continue."
+              : values.paymentPlan === "custom"
+                ? "Manager approval is required for this custom payment plan."
+                : values.paymentPlan !== "full_paid"
+                  ? "Payment schedule details are required for this payment plan."
+                  : "Full Paid selected. Payment schedule details are not required."}
           </div>
         </div>
 
