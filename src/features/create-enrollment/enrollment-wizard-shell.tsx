@@ -602,7 +602,7 @@ function normalizeMoneyInput(value: string) {
     return "";
   }
 
-  return `$${parsed.toFixed(2)}`;
+  return formatCatalogMoney(parsed);
 }
 
 function formatMoneyInput(value: string) {
@@ -1539,17 +1539,17 @@ function StepContent({
           </div>
 
         <FieldRow>
-          <Field label="Tuition" value={values.tuition ?? ""} onChange={(value) => setField("tuition", value)} placeholder="Example: 1748.00" />
-          <Field label="Registration fee" value={values.registrationFee ?? ""} onChange={(value) => setField("registrationFee", value)} placeholder="Example: 25.00" />
+          <Field label="Tuition" value={values.tuition ?? ""} onChange={(value) => setField("tuition", formatMoneyInput(value))} onBlur={() => setField("tuition", normalizeMoneyInput(values.tuition ?? ""))} placeholder="Example: 1748.00" />
+          <Field label="Registration fee" value={values.registrationFee ?? ""} onChange={(value) => setField("registrationFee", formatMoneyInput(value))} onBlur={() => setField("registrationFee", normalizeMoneyInput(values.registrationFee ?? ""))} placeholder="Example: 25.00" />
         </FieldRow>
 
         <FieldRow>
-          <Field label="Material fee" value={values.materialFee ?? ""} onChange={(value) => setField("materialFee", value)} placeholder="Example: 103.00" />
-          <Field label="eLearning" value={values.eLearningFee ?? ""} onChange={(value) => setField("eLearningFee", value)} placeholder="Example: 0.00" />
+          <Field label="Material fee" value={values.materialFee ?? ""} onChange={(value) => setField("materialFee", formatMoneyInput(value))} onBlur={() => setField("materialFee", normalizeMoneyInput(values.materialFee ?? ""))} placeholder="Example: 103.00" />
+          <Field label="eLearning" value={values.eLearningFee ?? ""} onChange={(value) => setField("eLearningFee", formatMoneyInput(value))} onBlur={() => setField("eLearningFee", normalizeMoneyInput(values.eLearningFee ?? ""))} placeholder="Example: 0.00" />
         </FieldRow>
 
         <FieldRow>
-          <Field label="Travel amount" value={values.travelAmount ?? ""} onChange={(value) => setField("travelAmount", value)} placeholder="Example: 0.00" />
+          <Field label="Travel amount" value={values.travelAmount ?? ""} onChange={(value) => setField("travelAmount", formatMoneyInput(value))} onBlur={() => setField("travelAmount", normalizeMoneyInput(values.travelAmount ?? ""))} placeholder="Example: 0.00" />
           <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
             <p className="font-semibold text-slate-950">Charge calculation</p>
             <p className="mt-1 text-xs leading-5 text-muted-foreground">
