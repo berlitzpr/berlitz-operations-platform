@@ -2213,7 +2213,7 @@ function StepContent({
                   <span className="text-3xl font-black tracking-[-0.03em] text-[#0057B8]">
                     Berlitz
                   </span>
-                  <span className="text-xs font-bold text-[#0057B8]">R</span>
+                  <span className="text-xs font-bold text-[#0057B8]">®</span>
                 </div>
                 <div className="mt-2 space-y-0.5 text-[10px] leading-tight text-slate-700">
                   <p>282 Avenida Jesus T. Pinero</p>
@@ -2331,7 +2331,9 @@ function StepContent({
                 <div className="grid grid-cols-[78px_1fr] gap-y-1">
                   <span className="text-slate-600">Package:</span>
                   <span className="font-bold">
-                    {selectedProgramPackage?.name ?? "Pending package"}
+                    {selectedProgramPackage
+                      ? selectedProgramPackage.name.replace(/^G\d+\s+[—-]\s+/, "")
+                      : "Pending package"}
                   </span>
                   <span className="text-slate-600">Language:</span>
                   <span className="font-bold">{values.language || "Pending"}</span>
@@ -2359,7 +2361,9 @@ function StepContent({
                   <span className="font-bold">{formatCatalogMoney(agreementTotals.material)}</span>
                   <span>Discount</span>
                   <span className="font-bold">
-                    -{formatCatalogMoney(agreementTotals.discount)}
+                    {agreementTotals.discount > 0
+                      ? formatCatalogMoney(-agreementTotals.discount)
+                      : "-"}
                   </span>
                   <span>eLearning</span>
                   <span className="font-bold">{formatCatalogMoney(agreementTotals.eLearning)}</span>
@@ -2394,7 +2398,11 @@ function StepContent({
                   <span>Subtotal</span>
                   <span className="font-bold">{formatCatalogMoney(agreementTotals.originalSubtotal)}</span>
                   <span>Discount</span>
-                  <span className="font-bold">-{formatCatalogMoney(agreementTotals.discount)}</span>
+                  <span className="font-bold">
+                    {agreementTotals.discount > 0
+                      ? formatCatalogMoney(-agreementTotals.discount)
+                      : "-"}
+                  </span>
                   <span>Adjusted Subtotal</span>
                   <span className="font-bold">{formatCatalogMoney(agreementTotals.subtotal)}</span>
                   <span>State Tax 10.5%</span>
@@ -2407,20 +2415,39 @@ function StepContent({
                   </span>
                 </div>
                 <div className="mt-2 border-t border-slate-950 pt-2">
-                  <p>
-                    <span className="font-bold">Deposit:</span>{" "}
-                    {values.deposit || "Pending"}
-                  </p>
-                  <p className="mt-1">
-                    <span className="font-bold">Balance:</span>{" "}
-                    {knownPaymentBreakdown
-                      ? `${formatCatalogMoney(knownPaymentBreakdown.confirmation)} at confirmation + ${knownPaymentBreakdown.installmentCount} payments of ${formatCatalogMoney(knownPaymentBreakdown.installmentAmount)} ${knownPaymentBreakdown.cadence}`
-                      : values.deposit
-                        ? formatCatalogMoney(
-                            Math.max(agreementTotals.total - parseCatalogMoney(values.deposit), 0)
-                          )
-                        : "Pending payment schedule"}
-                  </p>
+                  <p className="mb-1 font-bold">Payment Schedule</p>
+                  <div className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-1">
+                    <span>Deposit</span>
+                    <span className="font-bold">{values.deposit || "Pending"}</span>
+                    <span>Confirmation Payment</span>
+                    <span className="font-bold">
+                      {values.confirmationPayment
+                        ? `${values.confirmationPayment} + tax`
+                        : knownPaymentBreakdown
+                          ? `${formatCatalogMoney(knownPaymentBreakdown.confirmation)} + tax`
+                          : "Pending"}
+                    </span>
+                    <span>Installments</span>
+                    <span className="font-bold text-right">
+                      {values.installmentCount && values.installmentAmount
+                        ? `${values.installmentCount} payments of ${values.installmentAmount} + tax`
+                        : knownPaymentBreakdown
+                          ? `${knownPaymentBreakdown.installmentCount} payments of ${formatCatalogMoney(knownPaymentBreakdown.installmentAmount)} + tax`
+                          : "Pending"}
+                    </span>
+                    <span>Frequency</span>
+                    <span className="font-bold">
+                      {values.paymentPlan === "every_2_weeks"
+                        ? "Every 2 weeks"
+                        : values.paymentPlan === "monthly"
+                          ? "Monthly"
+                          : values.paymentPlan === "by_level"
+                            ? "By level"
+                            : values.paymentPlan === "custom"
+                              ? "Custom"
+                              : knownPaymentBreakdown?.cadence ?? "-"}
+                    </span>
+                  </div>
                 </div>
               </section>
             </div>
