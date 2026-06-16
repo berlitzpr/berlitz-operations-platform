@@ -1164,13 +1164,39 @@ function StepContent({
           </FieldRow>
         )}
 
-        <Field
-          label="Alternate phone"
-          value={values.alternatePhone ?? ""}
-          onChange={(value) => setField("alternatePhone", formatPhoneInput(value))}
-          placeholder="Optional alternate phone"
-          error={errors.alternatePhone}
-        />
+          <FieldRow>
+            <Field
+              label="Day phone"
+              value={values.dayPhone ?? ""}
+              onChange={(value) => setField("dayPhone", formatPhoneInput(value))}
+              placeholder="Optional day phone"
+              error={errors.dayPhone}
+            />
+            <Field
+              label="Evening phone"
+              value={values.eveningPhone ?? ""}
+              onChange={(value) => setField("eveningPhone", formatPhoneInput(value))}
+              placeholder="Optional evening phone"
+              error={errors.eveningPhone}
+            />
+          </FieldRow>
+
+          <FieldRow>
+            <Field
+              label="Alternate phone"
+              value={values.alternatePhone ?? ""}
+              onChange={(value) => setField("alternatePhone", formatPhoneInput(value))}
+              placeholder="Optional alternate phone"
+              error={errors.alternatePhone}
+            />
+            <Field
+              label="Corporate No."
+              value={values.corporateNumber ?? ""}
+              onChange={(value) => setField("corporateNumber", value)}
+              placeholder="Optional corporate number"
+              error={errors.corporateNumber}
+            />
+          </FieldRow>
 
         <FieldRow>
           <Field
@@ -2336,7 +2362,7 @@ function StepContent({
               <section className="rounded-md border border-slate-950 p-3">
                 <div className="grid grid-cols-[95px_1fr] gap-y-1">
                   <span className="text-slate-600">Day Phone:</span>
-                  <span className="font-bold">{agreementContact.phone || "Pending"}</span>
+                  <span className="font-bold">{values.dayPhone || agreementContact.phone || "Pending"}</span>
                   <span className="text-slate-600">E-Mail:</span>
                   <span className="break-all font-bold">{agreementContact.email || "Pending"}</span>
                   {agreementContact.relationship ? (
@@ -2346,11 +2372,11 @@ function StepContent({
                     </>
                   ) : null}
                   <span className="text-slate-600">Eve Phone:</span>
-                  <span />
+                    <span className="font-bold">{values.eveningPhone || "-"}</span>
                   <span className="text-slate-600">Mobile:</span>
-                  <span />
+                    <span className="font-bold">{values.mobilePhone || "-"}</span>
                   <span className="text-slate-600">Corporate No.:</span>
-                  <span />
+                    <span className="font-bold">{values.corporateNumber || "-"}</span>
                 </div>
               </section>
             </div>
