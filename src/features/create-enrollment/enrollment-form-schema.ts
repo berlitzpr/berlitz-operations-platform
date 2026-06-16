@@ -369,8 +369,7 @@ export function getEnrollmentRules(values: EnrollmentFormValues) {
 
   const requiresTbo = isGroup;
   const requiresPrivateCase = isPrivate;
-  const requiresPaymentAuthorization =
-    values.paymentPlan !== "" && values.paymentPlan !== "full_paid";
+  const requiresPaymentAuthorization = values.paymentPlan === "custom";
   const requiresManagerApproval =
     values.paymentPlan === "custom" || discountNeedsManagerApproval;
 
