@@ -1558,15 +1558,14 @@ function StepContent({
           </div>
         </FieldRow>
 
-        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-          <div className="mb-4">
-            <h4 className="text-sm font-semibold text-slate-950">Discount / Promotion</h4>
-            <p className="text-xs leading-5 text-muted-foreground">
-              Use only approved discounts. Silver Bullet is treated as a configurable end-of-month rule and will flag manager approval when outside the active window.
-            </p>
-          </div>
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <div className="mb-4">
+              <h4 className="text-sm font-semibold text-slate-950">Discount / Promotion</h4>
+              <p className="text-xs leading-5 text-muted-foreground">
+                Use only approved discounts. Details open only when a discount is selected.
+              </p>
+            </div>
 
-          <FieldRow>
             <NativeSelect
               label="Discount / Promotion"
               value={values.discountPromotion ?? "none"}
@@ -1593,102 +1592,107 @@ function StepContent({
               ))}
             </NativeSelect>
 
-            <div className="space-y-2">
-              <Label className={fieldLabelClassName}>Discount value type</Label>
-              <div className="grid grid-cols-2 gap-2 rounded-2xl border border-slate-200 bg-white p-1 shadow-sm">
-                <Button
-                  type="button"
-                  variant={(values.discountValueType ?? "amount") === "amount" ? "default" : "ghost"}
-                  onClick={() => {
-                    setField("discountValueType", "amount");
-                    setField("discountAmount", "");
-                  }}
-                  className="h-9 rounded-xl text-sm font-semibold"
-                >
-                  Dollar amount
-                </Button>
-                <Button
-                  type="button"
-                  variant={values.discountValueType === "percent" ? "default" : "ghost"}
-                  onClick={() => {
-                    setField("discountValueType", "percent");
-                    setField("discountAmount", "");
-                  }}
-                  className="h-9 rounded-xl text-sm font-semibold"
-                >
-                  Percentage
-                </Button>
+            {values.discountPromotion && values.discountPromotion !== "none" ? (
+              <div className="mt-5 space-y-4 rounded-2xl border border-white bg-white p-4 shadow-sm">
+                <FieldRow>
+                  <div className="space-y-2">
+                    <Label className={fieldLabelClassName}>Discount value type</Label>
+                    <div className="grid grid-cols-2 gap-2 rounded-2xl border border-slate-200 bg-white p-1 shadow-sm">
+                      <Button
+                        type="button"
+                        variant={(values.discountValueType ?? "amount") === "amount" ? "default" : "ghost"}
+                        onClick={() => {
+                          setField("discountValueType", "amount");
+                          setField("discountAmount", "");
+                        }}
+                        className="h-9 rounded-xl text-sm font-semibold"
+                      >
+                        Dollar amount
+                      </Button>
+                      <Button
+                        type="button"
+                        variant={values.discountValueType === "percent" ? "default" : "ghost"}
+                        onClick={() => {
+                          setField("discountValueType", "percent");
+                          setField("discountAmount", "");
+                        }}
+                        className="h-9 rounded-xl text-sm font-semibold"
+                      >
+                        Percentage
+                      </Button>
+                    </div>
+                  </div>
+
+                  <Field
+                    label={values.discountValueType === "percent" ? "Discount percentage" : "Discount amount"}
+                    required
+                    value={values.discountAmount ?? ""}
+                    onChange={(value) =>
+                      setField(
+                        "discountAmount",
+                        values.discountValueType === "percent"
+                          ? value.replace(/[^0-9.]/g, "").slice(0, 6)
+                          : formatMoneyInput(value)
+                      )
+                    }
+                    onBlur={() => {
+                      if (values.discountValueType === "percent") {
+                        const parsed = Number.parseFloat(
+                          (values.discountAmount ?? "").replace(/[^0-9.]/g, "")
+                        );
+                        setField(
+                          "discountAmount",
+                          Number.isFinite(parsed)
+                            ? `${Math.min(Math.max(parsed, 0), 100)}%`
+                            : ""
+                        );
+                        return;
+                      }
+
+                      setField("discountAmount", normalizeMoneyInput(values.discountAmount ?? ""));
+                    }}
+                    placeholder={values.discountValueType === "percent" ? "Example: 10%" : "Example: 100.00"}
+                    helper={values.discountValueType === "percent" ? "Enter percent from 0 to 100." : "Enter fixed dollar amount."}
+                    error={errors.discountAmount}
+                  />
+                </FieldRow>
+
+                {values.discountPromotion === "same_day_interview" ? (
+                  <Field
+                    label="Interview date"
+                    required
+                    value={values.interviewDate ?? ""}
+                    onChange={(value) => setField("interviewDate", value)}
+                    type="date"
+                    helper="Same-day discount is clean only when interview date and enrollment date match."
+                    error={errors.interviewDate}
+                  />
+                ) : null}
+
+                {values.discountPromotion === "manager_approved" || values.discountPromotion === "other" ? (
+                  <Field
+                    label="Approval note"
+                    required
+                    value={values.discountReason ?? ""}
+                    onChange={(value) => setField("discountReason", value)}
+                    placeholder="Enter manager approval or custom discount reason"
+                    error={errors.discountReason}
+                  />
+                ) : null}
+
+                <div className={cn(
+                  "rounded-2xl border p-4 text-sm",
+                  rules.discountNeedsManagerApproval
+                    ? "border-amber-200 bg-amber-50 text-amber-900"
+                    : "border-emerald-200 bg-emerald-50 text-emerald-900"
+                )}>
+                  {rules.discountNeedsManagerApproval
+                    ? "This discount will require manager approval before final submission."
+                    : "Discount rule looks valid for this enrollment."}
+                </div>
               </div>
-
-              <Field
-                label={values.discountValueType === "percent" ? "Discount percentage" : "Discount amount"}
-                value={values.discountAmount ?? ""}
-                onChange={(value) =>
-                  setField(
-                    "discountAmount",
-                    values.discountValueType === "percent"
-                      ? value.replace(/[^0-9.]/g, "").slice(0, 6)
-                      : formatMoneyInput(value)
-                  )
-                }
-                onBlur={() => {
-                  if (values.discountValueType === "percent") {
-                    const parsed = Number.parseFloat(values.discountAmount ?? "");
-                    setField(
-                      "discountAmount",
-                      Number.isFinite(parsed)
-                        ? String(Math.min(Math.max(parsed, 0), 100))
-                        : ""
-                    );
-                    return;
-                  }
-
-                  setField("discountAmount", normalizeMoneyInput(values.discountAmount ?? ""));
-                }}
-                placeholder={values.discountValueType === "percent" ? "Example: 10" : "Example: 100.00"}
-                helper={values.discountValueType === "percent" ? "Enter percent from 0 to 100." : "Enter fixed dollar amount."}
-                error={errors.discountAmount}
-              />
-            </div>
-          </FieldRow>
-
-          {values.discountPromotion === "same_day_interview" ? (
-            <Field
-              label="Interview date"
-              required
-              value={values.interviewDate ?? ""}
-              onChange={(value) => setField("interviewDate", value)}
-              type="date"
-              helper="Same-day discount is clean only when interview date and enrollment date match."
-              error={errors.interviewDate}
-            />
-          ) : null}
-
-          {values.discountPromotion === "manager_approved" || values.discountPromotion === "other" ? (
-            <Field
-              label="Approval note"
-              required
-              value={values.discountReason ?? ""}
-              onChange={(value) => setField("discountReason", value)}
-              placeholder="Enter manager approval or custom discount reason"
-              error={errors.discountReason}
-            />
-          ) : null}
-
-          {rules.hasDiscount ? (
-            <div className={cn(
-              "mt-4 rounded-2xl border p-4 text-sm",
-              rules.discountNeedsManagerApproval
-                ? "border-amber-200 bg-amber-50 text-amber-900"
-                : "border-emerald-200 bg-emerald-50 text-emerald-900"
-            )}>
-              {rules.discountNeedsManagerApproval
-                ? "This discount will require manager approval before final submission."
-                : "Discount rule looks valid for this enrollment."}
-            </div>
-          ) : null}
-        </div>
-
+            ) : null}
+          </div>
         {selectedProgramPackage ? (
           <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4 text-sm text-blue-950">
             <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">
