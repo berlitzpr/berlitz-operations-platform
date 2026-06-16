@@ -2195,7 +2195,7 @@ function StepContent({
               )}
             </div>
 
-            <div className="rounded-2xl border border-blue-200 bg-white p-4 text-sm text-blue-950">
+              <div className="flex min-h-[100px] flex-col justify-center rounded-2xl border border-blue-200 bg-white p-4 text-center text-sm text-blue-950">
               <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">
                 Generated Customer ID
               </p>
