@@ -1713,13 +1713,13 @@ function StepContent({
                     <span>Tuition</span>
                     <span className="font-semibold">{formatCatalogMoney(agreementTotals.tuition)}</span>
                     <span>Registration fee</span>
-                    <span className="font-semibold">{formatCatalogMoney(agreementTotals.registration)}</span>
+                    <span className="font-semibold">{agreementTotals.registration > 0 ? formatCatalogMoney(agreementTotals.registration) : "-"}</span>
                     <span>Material</span>
-                    <span className="font-semibold">{formatCatalogMoney(agreementTotals.material)}</span>
+                    <span className="font-semibold">{agreementTotals.material > 0 ? formatCatalogMoney(agreementTotals.material) : "-"}</span>
                     <span>eLearning</span>
-                    <span className="font-semibold">{formatCatalogMoney(agreementTotals.eLearning)}</span>
+                    <span className="font-semibold">{agreementTotals.eLearning > 0 ? formatCatalogMoney(agreementTotals.eLearning) : "-"}</span>
                     <span>Travel amount</span>
-                    <span className="font-semibold">{formatCatalogMoney(agreementTotals.travel)}</span>
+                    <span className="font-semibold">{agreementTotals.travel > 0 ? formatCatalogMoney(agreementTotals.travel) : "-"}</span>
                   </div>
                 </section>
 
@@ -2232,7 +2232,7 @@ function StepContent({
                   <span className="text-3xl font-black tracking-[-0.03em] text-[#0057B8]">
                     Berlitz
                   </span>
-                  <span className="text-xs font-bold text-[#0057B8]">®</span>
+                  <span className="relative -top-2 text-[8px] font-bold leading-none text-[#0057B8]">®</span>
                 </div>
                 <div className="mt-2 space-y-0.5 text-[10px] leading-tight text-slate-700">
                   <p>282 Avenida Jesus T. Pinero</p>
@@ -2257,7 +2257,7 @@ function StepContent({
                 </div>
               </div>
 
-              <div className="space-y-1 text-right">
+              <div className="mt-8 space-y-1 text-right">
                 <p>
                   <span className="text-slate-600">Agreement Date:</span>{" "}
                   <span className="font-bold">{formatAgreementDate(values.enrollmentDate)}</span>
@@ -2374,10 +2374,10 @@ function StepContent({
                   <span className="font-bold">{formatCatalogMoney(agreementTotals.tuition)}</span>
                   <span>Registration</span>
                   <span className="font-bold">
-                    {formatCatalogMoney(agreementTotals.registration)}
+                    {agreementTotals.registration > 0 ? formatCatalogMoney(agreementTotals.registration) : "-"}
                   </span>
                   <span>Material</span>
-                  <span className="font-bold">{formatCatalogMoney(agreementTotals.material)}</span>
+                  <span className="font-bold">{agreementTotals.material > 0 ? formatCatalogMoney(agreementTotals.material) : "-"}</span>
                   <span>Discount</span>
                   <span className="font-bold">
                     {agreementTotals.discount > 0
@@ -2385,9 +2385,9 @@ function StepContent({
                       : "-"}
                   </span>
                   <span>eLearning</span>
-                  <span className="font-bold">{formatCatalogMoney(agreementTotals.eLearning)}</span>
+                  <span className="font-bold">{agreementTotals.eLearning > 0 ? formatCatalogMoney(agreementTotals.eLearning) : "-"}</span>
                   <span>Travel Amount</span>
-                  <span className="font-bold">{formatCatalogMoney(agreementTotals.travel)}</span>
+                  <span className="font-bold">{agreementTotals.travel > 0 ? formatCatalogMoney(agreementTotals.travel) : "-"}</span>
                 </div>
               </section>
             </div>
