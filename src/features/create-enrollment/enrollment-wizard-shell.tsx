@@ -2219,13 +2219,42 @@ function StepContent({
             type="button"
             variant="outline"
             className="h-10 rounded-2xl px-4 font-semibold"
-            onClick={() => window.print()}
+            onClick={() => {
+                const agreement = document.querySelector("[data-agreement-preview]");
+                if (!agreement) {
+                  window.print();
+                  return;
+                }
+
+                const printWindow = window.open("", "_blank", "width=900,height=1100");
+                if (!printWindow) {
+                  window.print();
+                  return;
+                }
+
+                printWindow.document.write(`
+                  <html>
+                    <head>
+                      <title>Enrollment Agreement</title>
+                      <style>
+                        body { margin: 0; padding: 24px; font-family: Arial, sans-serif; background: white; }
+                        * { box-sizing: border-box; }
+                      </style>
+                    </head>
+                    <body>${agreement.outerHTML}</body>
+                  </html>
+                `);
+                printWindow.document.close();
+                printWindow.focus();
+                printWindow.print();
+                printWindow.close();
+              }}
           >
             Print / Save PDF
           </Button>
         </CardHeader>
         <CardContent>
-          <div className="mx-auto max-w-[940px] border border-slate-300 bg-white p-7 text-[11px] leading-[1.22] text-slate-950 shadow-sm print:max-w-none print:border-0 print:p-0 print:shadow-none">
+          <div data-agreement-preview className="mx-auto max-w-[940px] border border-slate-300 bg-white p-7 text-[11px] leading-[1.22] text-slate-950 shadow-sm print:max-w-none print:border-0 print:p-0 print:shadow-none">
             <div className="grid grid-cols-[1fr_1.35fr_1fr] items-start gap-5 border-b-2 border-slate-950 pb-3">
               <div>
                 <div className="flex items-baseline gap-1">
