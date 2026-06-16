@@ -1530,34 +1530,28 @@ function StepContent({
           />
         </FieldRow>
 
-        <div className="border-t border-slate-200 pt-6">
-          <div className="mb-4">
-            <h3 className="text-base font-semibold text-slate-950">Pricing & Payment</h3>
-            <p className="text-sm text-muted-foreground">
-              Confirm tuition, material, registration, deposit, and payment plan from the selected package.
-            </p>
-          </div>
+          <div className="border-t border-slate-200 pt-6">
+            <div className="mb-5">
+              <h3 className="text-base font-semibold text-slate-950">Pricing & Payment</h3>
+              <p className="text-sm text-muted-foreground">
+                Confirm program charges, discounts, and payment plan details from the selected package.
+              </p>
+            </div>
 
-        <FieldRow>
-          <Field label="Tuition" value={values.tuition ?? ""} onChange={(value) => setField("tuition", formatMoneyInput(value))} onBlur={() => setField("tuition", normalizeMoneyInput(values.tuition ?? ""))} placeholder="Example: 1748.00" />
-          <Field label="Registration fee" value={values.registrationFee ?? ""} onChange={(value) => setField("registrationFee", formatMoneyInput(value))} onBlur={() => setField("registrationFee", normalizeMoneyInput(values.registrationFee ?? ""))} placeholder="Example: 25.00" />
-        </FieldRow>
+            <div className="grid gap-x-4 gap-y-5 md:grid-cols-2">
+              <Field label="Tuition" value={values.tuition ?? ""} onChange={(value) => setField("tuition", formatMoneyInput(value))} onBlur={() => setField("tuition", normalizeMoneyInput(values.tuition ?? ""))} placeholder="Example: 1748.00" />
+              <Field label="Registration fee" value={values.registrationFee ?? ""} onChange={(value) => setField("registrationFee", formatMoneyInput(value))} onBlur={() => setField("registrationFee", normalizeMoneyInput(values.registrationFee ?? ""))} placeholder="Example: 25.00" />
+              <Field label="Material fee" value={values.materialFee ?? ""} onChange={(value) => setField("materialFee", formatMoneyInput(value))} onBlur={() => setField("materialFee", normalizeMoneyInput(values.materialFee ?? ""))} placeholder="Example: 103.00" />
+              <Field label="eLearning" value={values.eLearningFee ?? ""} onChange={(value) => setField("eLearningFee", formatMoneyInput(value))} onBlur={() => setField("eLearningFee", normalizeMoneyInput(values.eLearningFee ?? ""))} placeholder="Example: 0.00" />
+              <Field label="Travel amount" value={values.travelAmount ?? ""} onChange={(value) => setField("travelAmount", formatMoneyInput(value))} onBlur={() => setField("travelAmount", normalizeMoneyInput(values.travelAmount ?? ""))} placeholder="Example: 0.00" />
+            </div>
 
-        <FieldRow>
-          <Field label="Material fee" value={values.materialFee ?? ""} onChange={(value) => setField("materialFee", formatMoneyInput(value))} onBlur={() => setField("materialFee", normalizeMoneyInput(values.materialFee ?? ""))} placeholder="Example: 103.00" />
-          <Field label="eLearning" value={values.eLearningFee ?? ""} onChange={(value) => setField("eLearningFee", formatMoneyInput(value))} onBlur={() => setField("eLearningFee", normalizeMoneyInput(values.eLearningFee ?? ""))} placeholder="Example: 0.00" />
-        </FieldRow>
-
-        <FieldRow>
-          <Field label="Travel amount" value={values.travelAmount ?? ""} onChange={(value) => setField("travelAmount", formatMoneyInput(value))} onBlur={() => setField("travelAmount", normalizeMoneyInput(values.travelAmount ?? ""))} placeholder="Example: 0.00" />
-          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
-            <p className="font-semibold text-slate-950">Charge calculation</p>
-            <p className="mt-1 text-xs leading-5 text-muted-foreground">
-              Tuition is calculated from lessons x rate. Registration, material, eLearning, and travel stay as separate charge lines.
-            </p>
-          </div>
-        </FieldRow>
-
+            <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
+              <p className="font-semibold text-slate-950">Charge calculation</p>
+              <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                Tuition is calculated from lessons x rate. Registration, material, eLearning, and travel stay as separate charge lines.
+              </p>
+            </div>
           <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
             <div className="mb-4">
               <h4 className="text-sm font-semibold text-slate-950">Discount / Promotion</h4>
