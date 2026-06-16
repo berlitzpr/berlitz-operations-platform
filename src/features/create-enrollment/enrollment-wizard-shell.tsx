@@ -1693,7 +1693,7 @@ function StepContent({
                 Program pricing summary
               </p>
 
-              <div className="mt-4 grid gap-2 md:grid-cols-2">
+              <div className="mx-auto mt-4 grid max-w-2xl gap-2 md:grid-cols-2">
                 <p>
                   <span className="font-semibold">Package:</span>{" "}
                   {selectedProgramPackage.name}
@@ -1704,7 +1704,7 @@ function StepContent({
                 </p>
               </div>
 
-              <div className="mt-5 max-w-xl space-y-5">
+              <div className="mx-auto mt-5 max-w-2xl space-y-5">
                 <section>
                   <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-blue-700">
                     Charges
@@ -1767,7 +1767,7 @@ function StepContent({
             </div>
           ) : null}
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-4">
+        <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-4">
           <div className="mb-4">
             <h4 className="text-sm font-semibold text-slate-950">Payment Plan</h4>
             <p className="text-xs leading-5 text-muted-foreground">
