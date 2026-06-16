@@ -2145,7 +2145,7 @@ function StepContent({
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <FieldRow>
+          <div className="mx-auto grid max-w-4xl gap-4 md:grid-cols-[1.1fr_0.9fr] md:items-end">
             <div className="space-y-2">
               <Label className={fieldLabelClassName}>
                 LCMS Customer ID <span className="ml-1 text-red-600">*</span>
@@ -2184,7 +2184,7 @@ function StepContent({
                 {customerIdPreview ?? "Pending LCMS ID"}
               </p>
             </div>
-          </FieldRow>
+          </div>
         </CardContent>
       </Card>
 
