@@ -39,7 +39,13 @@ export function buildEnrollmentDraftPayload(values: EnrollmentFormValues) {
   const registrationFee = parseMoney(values.registrationFee);
   const materialFee = parseMoney(values.materialFee);
   const depositAmount = parseMoney(values.deposit);
-  const totalAmount = tuition + registrationFee + materialFee;
+  const discountAmount = parseMoney(values.discountAmount);
+  const originalSubtotalAmount = tuition + registrationFee + materialFee;
+  const adjustedSubtotalAmount = Math.max(originalSubtotalAmount - discountAmount, 0);
+  const stateTaxAmount = adjustedSubtotalAmount * 0.105;
+  const municipalTaxAmount = adjustedSubtotalAmount * 0.01;
+  const taxAmount = stateTaxAmount + municipalTaxAmount;
+  const totalAmount = adjustedSubtotalAmount + taxAmount;
   const balanceAmount = Math.max(totalAmount - depositAmount, 0);
 
   return {
@@ -88,6 +94,12 @@ export function buildEnrollmentDraftPayload(values: EnrollmentFormValues) {
 
     paymentPlanPayload: {
       plan_type: values.paymentPlan,
+      original_subtotal_amount: originalSubtotalAmount,
+      discount_amount: discountAmount,
+      adjusted_subtotal_amount: adjustedSubtotalAmount,
+      state_tax_amount: stateTaxAmount,
+      municipal_tax_amount: municipalTaxAmount,
+      tax_amount: taxAmount,
       total_amount: totalAmount,
       deposit_amount: depositAmount,
       balance_amount: balanceAmount,
@@ -97,6 +109,16 @@ export function buildEnrollmentDraftPayload(values: EnrollmentFormValues) {
         : rules.requiresPaymentAuthorization
           ? "pending_authorization"
           : "active",
+    },
+
+    discountPayload: {
+      promotion_type: values.discountPromotion ?? "none",
+      amount: discountAmount,
+      reason: values.discountReason || null,
+      interview_date: values.interviewDate || null,
+      requires_manager_approval: rules.discountNeedsManagerApproval,
+      same_day_discount_needs_approval: rules.sameDayDiscountNeedsApproval,
+      silver_bullet_needs_approval: rules.silverBulletNeedsApproval,
     },
 
     assignmentRules: {

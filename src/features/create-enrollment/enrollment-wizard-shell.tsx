@@ -31,6 +31,7 @@ import { cn } from "@/lib/utils";
 
 import {
   buildCustomerId,
+  discountPromotionOptions,
   enrollmentFormSchema,
   getDefaultEnrollmentValues,
   getEnrollmentRules,
@@ -432,16 +433,20 @@ function getAgreementTotals(values: EnrollmentFormValues, programPackage: Progra
   const tuition = parseCatalogMoney(values.tuition);
   const registration = parseCatalogMoney(values.registrationFee);
   const material = parseCatalogMoney(values.materialFee);
-  const subtotal = programPackage?.total ?? tuition + registration + material;
+  const discount = parseCatalogMoney(values.discountAmount);
+  const originalSubtotal = programPackage?.total ?? tuition + registration + material;
+  const subtotal = Math.max(originalSubtotal - discount, 0);
   const stateTax = subtotal * 0.105;
   const municipalTax = subtotal * 0.01;
   const tax = stateTax + municipalTax;
-  const total = programPackage?.totalWithTax ?? subtotal + tax;
+  const total = subtotal + tax;
 
   return {
     tuition,
     registration,
     material,
+    originalSubtotal,
+    discount,
     subtotal,
     stateTax,
     municipalTax,
@@ -542,7 +547,6 @@ const stepValidationFields: Record<string, (keyof EnrollmentFormValues)[]> = {
     "city",
     "postalCode",
     "country",
-    "customerIdLast5",
     "enrollmentDate",
   ],
   program: [
@@ -554,6 +558,10 @@ const stepValidationFields: Record<string, (keyof EnrollmentFormValues)[]> = {
     "regularLessons",
     "lessonRate",
     "paymentPlan",
+    "interviewDate",
+    "discountPromotion",
+    "discountAmount",
+    "discountReason",
   ],
   schedule: [
     "scheduleProgramType",
@@ -567,7 +575,7 @@ const stepValidationFields: Record<string, (keyof EnrollmentFormValues)[]> = {
     "contractExpirationDate",
   ],
   assignment: [],
-  documents: [],
+  documents: ["customerIdLast5"],
 };
 
 function formatNameInput(value: string) {
@@ -1169,35 +1177,6 @@ function StepContent({
         />
 
         <FieldRow>
-          <div className="space-y-2">
-            <Label className={fieldLabelClassName}>
-              Customer ID <span className="ml-1 text-red-600">*</span>
-            </Label>
-            <div className="flex h-11 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition focus-within:border-[#0057B8] focus-within:ring-4 focus-within:ring-[#0057B8]/10">
-              <div className="flex min-w-[128px] shrink-0 items-center justify-center whitespace-nowrap border-r border-slate-200 bg-slate-50 px-3 text-sm font-semibold text-slate-700">
-                {customerIdPrefix}
-              </div>
-              <Input
-                value={values.customerIdLast5}
-                onChange={(event) =>
-                  setField(
-                    "customerIdLast5",
-                    event.target.value.replace(/\D/g, "").slice(0, 5)
-                  )
-                }
-                placeholder="Last 5 digits"
-                inputMode="numeric"
-                className="min-w-0 flex-1 border-0 bg-white px-4 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
-              />
-            </div>
-            {errors.customerIdLast5 ? (
-              <p className={errorTextClassName}>{errors.customerIdLast5}</p>
-            ) : (
-              <p className={helperTextClassName}>
-                Enter only the last 5 digits. The Puerto Rico / Hato Rey prefix is generated automatically.
-              </p>
-            )}
-          </div>
           <Field
             label="Enrollment date"
             required
@@ -1209,16 +1188,16 @@ function StepContent({
             type="date"
             error={errors.enrollmentDate}
           />
-        </FieldRow>
 
-        <div className="rounded-2xl border bg-slate-50 p-4 text-sm">
-          <p className="text-xs font-medium uppercase tracking-[0.16em] text-slate-500">
-            Customer ID Preview
-          </p>
-          <p className="mt-2 text-lg font-semibold text-slate-950">
-            {customerIdPreview ?? "Enter 5 digits to generate preview"}
-          </p>
-        </div>
+          <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4 text-sm text-blue-950">
+            <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">
+              LCMS ID later
+            </p>
+            <p className="mt-1 text-xs leading-5 text-blue-900">
+              The LCMS Customer ID is requested in Review after the student has been created in LCMS. This prevents advisors from entering a placeholder ID.
+            </p>
+          </div>
+        </FieldRow>
 
         <div className="space-y-2">
           <Label className={fieldLabelClassName}>Internal notes / special instructions</Label>
@@ -1593,6 +1572,88 @@ function StepContent({
           />
         </FieldRow>
 
+        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+          <div className="mb-4">
+            <h4 className="text-sm font-semibold text-slate-950">Discount / Promotion</h4>
+            <p className="text-xs leading-5 text-muted-foreground">
+              Use only approved discounts. Silver Bullet is treated as a configurable end-of-month rule and will flag manager approval when outside the active window.
+            </p>
+          </div>
+
+          <FieldRow>
+            <NativeSelect
+              label="Discount / Promotion"
+              value={values.discountPromotion ?? "none"}
+              onChange={(value) => {
+                setField("discountPromotion", value);
+                if (value === "none") {
+                  setField("discountAmount", "");
+                  setField("discountReason", "");
+                  setField("interviewDate", "");
+                }
+              }}
+              helper={
+                selectedProgramPackage?.discountsAllowed === false
+                  ? "This package is marked as no-discount in the catalog."
+                  : "Select only if an approved promotion applies."
+              }
+              error={errors.discountPromotion}
+            >
+              {discountPromotionOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </NativeSelect>
+
+            <Field
+              label="Discount amount"
+              value={values.discountAmount ?? ""}
+              onChange={(value) => setField("discountAmount", formatMoneyInput(value))}
+              onBlur={() => setField("discountAmount", normalizeMoneyInput(values.discountAmount ?? ""))}
+              placeholder="Example: 100.00"
+              helper="Enter dollar amount, not percentage."
+              error={errors.discountAmount}
+            />
+          </FieldRow>
+
+          {values.discountPromotion === "same_day_interview" ? (
+            <Field
+              label="Interview date"
+              required
+              value={values.interviewDate ?? ""}
+              onChange={(value) => setField("interviewDate", value)}
+              type="date"
+              helper="Same-day discount is clean only when interview date and enrollment date match."
+              error={errors.interviewDate}
+            />
+          ) : null}
+
+          {values.discountPromotion === "manager_approved" || values.discountPromotion === "other" ? (
+            <Field
+              label="Approval note"
+              required
+              value={values.discountReason ?? ""}
+              onChange={(value) => setField("discountReason", value)}
+              placeholder="Enter manager approval or custom discount reason"
+              error={errors.discountReason}
+            />
+          ) : null}
+
+          {rules.hasDiscount ? (
+            <div className={cn(
+              "mt-4 rounded-2xl border p-4 text-sm",
+              rules.discountNeedsManagerApproval
+                ? "border-amber-200 bg-amber-50 text-amber-900"
+                : "border-emerald-200 bg-emerald-50 text-emerald-900"
+            )}>
+              {rules.discountNeedsManagerApproval
+                ? "This discount will require manager approval before final submission."
+                : "Discount rule looks valid for this enrollment."}
+            </div>
+          ) : null}
+        </div>
+
         {selectedProgramPackage ? (
           <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4 text-sm text-blue-950">
             <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">
@@ -1620,7 +1681,15 @@ function StepContent({
                 {formatCatalogMoney(agreementTotals.material)}
               </p>
               <p>
-                <span className="font-semibold">Subtotal:</span>{" "}
+                <span className="font-semibold">Original subtotal:</span>{" "}
+                {formatCatalogMoney(agreementTotals.originalSubtotal)}
+              </p>
+              <p>
+                <span className="font-semibold">Discount:</span>{" "}
+                -{formatCatalogMoney(agreementTotals.discount)}
+              </p>
+              <p>
+                <span className="font-semibold">Adjusted subtotal:</span>{" "}
                 {formatCatalogMoney(agreementTotals.subtotal)}
               </p>
               <p>
@@ -2012,6 +2081,57 @@ function StepContent({
 
   return (
     <div className="space-y-5">
+      <Card className="rounded-2xl border-blue-100 bg-blue-50">
+        <CardHeader>
+          <CardTitle>Final LCMS Confirmation</CardTitle>
+          <CardDescription>
+            Enter the last 5 digits only after the student has been created in LCMS.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <FieldRow>
+            <div className="space-y-2">
+              <Label className={fieldLabelClassName}>
+                LCMS Customer ID <span className="ml-1 text-red-600">*</span>
+              </Label>
+              <div className="flex h-11 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition focus-within:border-[#0057B8] focus-within:ring-4 focus-within:ring-[#0057B8]/10">
+                <div className="flex min-w-[128px] shrink-0 items-center justify-center whitespace-nowrap border-r border-slate-200 bg-slate-50 px-3 text-sm font-semibold text-slate-700">
+                  {customerIdPrefix}
+                </div>
+                <Input
+                  value={values.customerIdLast5 ?? ""}
+                  onChange={(event) =>
+                    setField(
+                      "customerIdLast5",
+                      event.target.value.replace(/\D/g, "").slice(0, 5)
+                    )
+                  }
+                  placeholder="Last 5 digits"
+                  inputMode="numeric"
+                  className="min-w-0 flex-1 border-0 bg-white px-4 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+                />
+              </div>
+              {errors.customerIdLast5 ? (
+                <p className={errorTextClassName}>{errors.customerIdLast5}</p>
+              ) : (
+                <p className={helperTextClassName}>
+                  The Puerto Rico / Hato Rey prefix is generated automatically.
+                </p>
+              )}
+            </div>
+
+            <div className="rounded-2xl border border-blue-200 bg-white p-4 text-sm text-blue-950">
+              <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">
+                Generated Customer ID
+              </p>
+              <p className="mt-2 text-lg font-semibold">
+                {customerIdPreview ?? "Pending LCMS ID"}
+              </p>
+            </div>
+          </FieldRow>
+        </CardContent>
+      </Card>
+
       <Card className="rounded-2xl">
         <CardHeader className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
@@ -2181,6 +2301,10 @@ function StepContent({
                   </span>
                   <span>Material</span>
                   <span className="font-bold">{formatCatalogMoney(agreementTotals.material)}</span>
+                  <span>Discount</span>
+                  <span className="font-bold">
+                    -{formatCatalogMoney(agreementTotals.discount)}
+                  </span>
                   <span>eLearning</span>
                   <span className="font-bold">$0.00</span>
                   <span>Travel Amount</span>
@@ -2212,6 +2336,10 @@ function StepContent({
               <section className="self-end rounded-md border-2 border-slate-950 p-3">
                 <div className="grid grid-cols-[1fr_auto] gap-y-1">
                   <span>Subtotal</span>
+                  <span className="font-bold">{formatCatalogMoney(agreementTotals.originalSubtotal)}</span>
+                  <span>Discount</span>
+                  <span className="font-bold">-{formatCatalogMoney(agreementTotals.discount)}</span>
+                  <span>Adjusted Subtotal</span>
                   <span className="font-bold">{formatCatalogMoney(agreementTotals.subtotal)}</span>
                   <span>State Tax 10.5%</span>
                   <span className="font-bold">{formatCatalogMoney(agreementTotals.stateTax)}</span>
@@ -2334,7 +2462,7 @@ function StepContent({
           </p>
           <p>
             <span className="font-medium">Customer ID:</span>{" "}
-            {customerIdPreview ?? "Pending"}
+            {customerIdPreview ?? "Required before final validation"}
           </p>
           <p>
             <span className="font-medium">Enrollment type:</span>{" "}
@@ -2510,6 +2638,15 @@ export function EnrollmentWizardShell() {
   };
 
   const validateDraft = () => {
+    if (!customerIdPreview) {
+      setErrors((current) => ({
+        ...current,
+        customerIdLast5: "Enter the final LCMS Customer ID before validating.",
+      }));
+      setDraftMessage("Enter the LCMS Customer ID from LCMS before creating the enrollment draft.");
+      return;
+    }
+
     const result = enrollmentFormSchema.safeParse(values);
 
     if (!result.success) {

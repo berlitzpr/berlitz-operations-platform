@@ -40,6 +40,14 @@ export const paymentPlanOptions = [
   { value: "custom", label: "Custom - Manager approval" },
 ] as const;
 
+export const discountPromotionOptions = [
+  { value: "none", label: "No discount" },
+  { value: "same_day_interview", label: "Same-day interview discount" },
+  { value: "silver_bullet", label: "Silver Bullet" },
+  { value: "manager_approved", label: "Manager-approved discount" },
+  { value: "other", label: "Other / Custom discount" },
+] as const;
+
 export const parentGuardianRelationshipOptions = [
   { value: "mother", label: "Mother" },
   { value: "father", label: "Father" },
@@ -69,8 +77,13 @@ export const enrollmentFormSchema = z
     country: z.string().min(1, "Country is required."),
     customerIdLast5: z
       .string()
-      .regex(/^[0-9]{5}$/, "Customer ID must be exactly 5 digits."),
+      .optional()
+      .refine(
+        (value) => !value || /^[0-9]{5}$/.test(value),
+        "Customer ID must be exactly 5 digits."
+      ),
     enrollmentDate: z.string().min(1, "Enrollment date is required."),
+    interviewDate: z.string().optional(),
 
     enrollmentType: z.string().min(1, "Enrollment type is required."),
     selectedPackageId: z.string().optional(),
@@ -107,6 +120,9 @@ export const enrollmentFormSchema = z
     deposit: z.string().optional(),
 
     paymentPlan: z.string().min(1, "Payment plan is required."),
+    discountPromotion: z.string().optional(),
+    discountAmount: z.string().optional(),
+    discountReason: z.string().optional(),
 
     notes: z.string().optional(),
   })
@@ -116,6 +132,38 @@ export const enrollmentFormSchema = z
         code: "custom",
         path: ["otherLanguage"],
         message: "Other language is required.",
+      });
+    }
+
+    if (values.discountPromotion === "same_day_interview" && !values.interviewDate?.trim()) {
+      context.addIssue({
+        code: "custom",
+        path: ["interviewDate"],
+        message: "Interview date is required for same-day interview discount.",
+      });
+    }
+
+    if (
+      values.discountPromotion &&
+      values.discountPromotion !== "none" &&
+      !values.discountAmount?.trim()
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["discountAmount"],
+        message: "Discount amount is required when a discount is selected.",
+      });
+    }
+
+    if (
+      (values.discountPromotion === "manager_approved" ||
+        values.discountPromotion === "other") &&
+      !values.discountReason?.trim()
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["discountReason"],
+        message: "Approval note is required for custom discounts.",
       });
     }
 
@@ -208,6 +256,7 @@ export function getDefaultEnrollmentValues(): EnrollmentFormValues {
     country: "Puerto Rico",
     customerIdLast5: "",
     enrollmentDate: getTodayDateString(),
+    interviewDate: "",
 
     enrollmentType: "",
     selectedPackageId: "",
@@ -240,13 +289,16 @@ export function getDefaultEnrollmentValues(): EnrollmentFormValues {
     materialFee: "",
     deposit: "",
     paymentPlan: "",
+    discountPromotion: "none",
+    discountAmount: "",
+    discountReason: "",
 
     notes: "",
   };
 }
 
-export function buildCustomerId(last5: string, enrollmentDate: string) {
-  if (!/^[0-9]{5}$/.test(last5)) {
+export function buildCustomerId(last5: string | undefined, enrollmentDate: string) {
+  if (!last5 || !/^[0-9]{5}$/.test(last5)) {
     return null;
   }
 
@@ -255,6 +307,23 @@ export function buildCustomerId(last5: string, enrollmentDate: string) {
     : new Date().getFullYear().toString().slice(-2);
 
   return `003-120-${year}-${last5}`;
+}
+
+function isSilverBulletWindow(enrollmentDate: string, windowDays = 5) {
+  if (!enrollmentDate) {
+    return false;
+  }
+
+  const date = new Date(`${enrollmentDate}T00:00:00`);
+
+  if (Number.isNaN(date.getTime())) {
+    return false;
+  }
+
+  const monthEnd = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+  const firstAllowedDay = monthEnd.getDate() - windowDays + 1;
+
+  return date.getDate() >= firstAllowedDay;
 }
 
 export function getEnrollmentRules(values: EnrollmentFormValues) {
@@ -272,11 +341,26 @@ export function getEnrollmentRules(values: EnrollmentFormValues) {
     values.enrollmentType !== "cyberteacher_phone" &&
     values.enrollmentType !== "flex";
 
+  const selectedDiscount = values.discountPromotion ?? "none";
+  const hasDiscount = selectedDiscount !== "none";
+  const sameDayDiscountNeedsApproval =
+    selectedDiscount === "same_day_interview" &&
+    values.interviewDate !== values.enrollmentDate;
+  const silverBulletNeedsApproval =
+    selectedDiscount === "silver_bullet" &&
+    !isSilverBulletWindow(values.enrollmentDate);
+  const discountNeedsManagerApproval =
+    selectedDiscount === "manager_approved" ||
+    selectedDiscount === "other" ||
+    sameDayDiscountNeedsApproval ||
+    silverBulletNeedsApproval;
+
   const requiresTbo = isGroup;
   const requiresPrivateCase = isPrivate;
   const requiresPaymentAuthorization =
     values.paymentPlan !== "" && values.paymentPlan !== "full_paid";
-  const requiresManagerApproval = values.paymentPlan === "custom";
+  const requiresManagerApproval =
+    values.paymentPlan === "custom" || discountNeedsManagerApproval;
 
   return {
     isPrivate,
@@ -286,5 +370,10 @@ export function getEnrollmentRules(values: EnrollmentFormValues) {
     requiresPrivateCase,
     requiresPaymentAuthorization,
     requiresManagerApproval,
+    hasDiscount,
+    discountNeedsManagerApproval,
+    sameDayDiscountNeedsApproval,
+    silverBulletNeedsApproval,
+    isSilverBulletWindow: isSilverBulletWindow(values.enrollmentDate),
   };
 }
