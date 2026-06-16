@@ -1931,7 +1931,15 @@ function StepContent({
                   "preferredDays",
                   value as EnrollmentFormValues["preferredDays"]
                 );
-                setField("preferredTime", "");
+                const nextTimeOptions = getTimeOptions({
+                  ...values,
+                  preferredDays: value,
+                } as EnrollmentFormValues);
+
+                setField(
+                  "preferredTime",
+                  nextTimeOptions.length === 1 ? nextTimeOptions[0].value : ""
+                );
               }}
               helper="For group schedules, only active fixed options are shown."
               error={errors.preferredDays}
@@ -1986,6 +1994,21 @@ function StepContent({
             later pass.
           </div>
         ) : null}
+
+          {!flexiblePrivateSchedule ? (
+            <div className="space-y-2">
+              <Label className={fieldLabelClassName}>Schedule flexibility / alternatives</Label>
+              <Textarea
+                value={values.scheduleFlexibilityNotes ?? ""}
+                onChange={(event) => setField("scheduleFlexibilityNotes", event.target.value)}
+                placeholder="Example: Prefers Monday / Wednesday, but can also attend Tuesday / Thursday after 6pm or Saturday mornings."
+                className="min-h-24 rounded-2xl border-slate-200 bg-white shadow-sm focus-visible:ring-[#0057B8]"
+              />
+              <p className={helperTextClassName}>
+                Optional. Use only when the student can attend other days or times besides the preferred schedule.
+              </p>
+            </div>
+          ) : null}
 
         {flexiblePrivateSchedule ? (
           <Field

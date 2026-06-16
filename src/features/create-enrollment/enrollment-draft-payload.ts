@@ -92,6 +92,7 @@ export function buildEnrollmentDraftPayload(values: EnrollmentFormValues) {
       is_complimentary: false,
       needs_review: true,
       notes: values.notes || null,
+      schedule_flexibility_notes: values.scheduleFlexibilityNotes || null,
     },
 
     lessonBreakdown: {
