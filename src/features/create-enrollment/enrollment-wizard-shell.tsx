@@ -1693,58 +1693,85 @@ function StepContent({
               </div>
             ) : null}
           </div>
-        {selectedProgramPackage ? (
-          <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4 text-sm text-blue-950">
-            <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">
-              Program pricing summary
-            </p>
-            <div className="mt-3 grid gap-2 md:grid-cols-2">
-              <p>
-                <span className="font-semibold">Package:</span>{" "}
-                {selectedProgramPackage.name}
+          {selectedProgramPackage ? (
+            <div className="mt-5 rounded-2xl border border-blue-100 bg-blue-50 p-4 text-sm text-blue-950">
+              <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">
+                Program pricing summary
               </p>
-              <p>
-                <span className="font-semibold">Code:</span>{" "}
-                {getAgreementScheduleCode(selectedProgramPackage)}
-              </p>
-              <p>
-                <span className="font-semibold">Tuition:</span>{" "}
-                {formatCatalogMoney(agreementTotals.tuition)}
-              </p>
-              <p>
-                <span className="font-semibold">Registration fee:</span>{" "}
-                {formatCatalogMoney(agreementTotals.registration)}
-              </p>
-              <p>
-                <span className="font-semibold">Material:</span>{" "}
-                {formatCatalogMoney(agreementTotals.material)}
-              </p>
-              <p>
-                <span className="font-semibold">Original subtotal:</span>{" "}
-                {formatCatalogMoney(agreementTotals.originalSubtotal)}
-              </p>
-              <p>
-                <span className="font-semibold">Discount:</span>{" "}
-                -{formatCatalogMoney(agreementTotals.discount)}
-              </p>
-              <p>
-                <span className="font-semibold">Adjusted subtotal:</span>{" "}
-                {formatCatalogMoney(agreementTotals.subtotal)}
-              </p>
-              <p>
-                <span className="font-semibold">State Tax 10.5%:</span>{" "}
-                {formatCatalogMoney(agreementTotals.stateTax)}
-              </p>
-              <p>
-                <span className="font-semibold">Municipal Tax 1%:</span>{" "}
-                {formatCatalogMoney(agreementTotals.municipalTax)}
-              </p>
-              <p className="text-base font-bold">
-                Total: {formatCatalogMoney(agreementTotals.total)}
-              </p>
+
+              <div className="mt-4 grid gap-2 md:grid-cols-2">
+                <p>
+                  <span className="font-semibold">Package:</span>{" "}
+                  {selectedProgramPackage.name}
+                </p>
+                <p>
+                  <span className="font-semibold">Code:</span>{" "}
+                  {getAgreementScheduleCode(selectedProgramPackage)}
+                </p>
+              </div>
+
+              <div className="mt-5 max-w-xl space-y-5">
+                <section>
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-blue-700">
+                    Charges
+                  </p>
+                  <div className="grid grid-cols-[1fr_auto] gap-y-1">
+                    <span>Tuition</span>
+                    <span className="font-semibold">{formatCatalogMoney(agreementTotals.tuition)}</span>
+                    <span>Registration fee</span>
+                    <span className="font-semibold">{formatCatalogMoney(agreementTotals.registration)}</span>
+                    <span>Material</span>
+                    <span className="font-semibold">{formatCatalogMoney(agreementTotals.material)}</span>
+                    <span>eLearning</span>
+                    <span className="font-semibold">{formatCatalogMoney(agreementTotals.eLearning)}</span>
+                    <span>Travel amount</span>
+                    <span className="font-semibold">{formatCatalogMoney(agreementTotals.travel)}</span>
+                  </div>
+                </section>
+
+                <section className="border-t border-blue-200 pt-4">
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-blue-700">
+                    Subtotal
+                  </p>
+                  <div className="grid grid-cols-[1fr_auto] gap-y-1">
+                    <span>Original subtotal</span>
+                    <span className="font-semibold">{formatCatalogMoney(agreementTotals.originalSubtotal)}</span>
+                    <span>Discount</span>
+                    <span className="font-semibold">
+                      {agreementTotals.discount > 0
+                        ? `-${formatCatalogMoney(agreementTotals.discount)}`
+                        : formatCatalogMoney(0)}
+                    </span>
+                    {agreementTotals.discount > 0 ? (
+                      <>
+                        <span>Adjusted subtotal</span>
+                        <span className="font-semibold">{formatCatalogMoney(agreementTotals.subtotal)}</span>
+                      </>
+                    ) : null}
+                  </div>
+                </section>
+
+                <section className="border-t border-blue-200 pt-4">
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-blue-700">
+                    Taxes
+                  </p>
+                  <div className="grid grid-cols-[1fr_auto] gap-y-1">
+                    <span>State Tax 10.5%</span>
+                    <span className="font-semibold">{formatCatalogMoney(agreementTotals.stateTax)}</span>
+                    <span>Municipal Tax 1%</span>
+                    <span className="font-semibold">{formatCatalogMoney(agreementTotals.municipalTax)}</span>
+                  </div>
+                </section>
+
+                <section className="border-t-2 border-blue-300 pt-4">
+                  <div className="grid grid-cols-[1fr_auto] items-center">
+                    <span className="text-base font-bold">Total</span>
+                    <span className="text-lg font-black">{formatCatalogMoney(agreementTotals.total)}</span>
+                  </div>
+                </section>
+              </div>
             </div>
-          </div>
-        ) : null}
+          ) : null}
 
         <div className="rounded-2xl border border-slate-200 bg-white p-4">
           <div className="mb-4">
