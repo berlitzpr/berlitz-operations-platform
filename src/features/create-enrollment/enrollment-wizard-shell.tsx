@@ -433,26 +433,21 @@ function getAgreementTotals(values: EnrollmentFormValues, programPackage: Progra
   const tuition = parseCatalogMoney(values.tuition);
   const registration = parseCatalogMoney(values.registrationFee);
   const material = parseCatalogMoney(values.materialFee);
-  const discount = parseCatalogMoney(values.discountAmount);
-  const originalSubtotal = programPackage?.total ?? tuition + registration + material;
+  const eLearning = parseCatalogMoney(values.eLearningFee);
+  const travel = parseCatalogMoney(values.travelAmount);
+  const rawDiscountValue = parseCatalogMoney(values.discountAmount);
+  const originalSubtotal = tuition + registration + material + eLearning + travel;
+  const discount =
+    values.discountValueType === "percent"
+      ? originalSubtotal * (Math.min(rawDiscountValue, 100) / 100)
+      : rawDiscountValue;
   const subtotal = Math.max(originalSubtotal - discount, 0);
   const stateTax = subtotal * 0.105;
   const municipalTax = subtotal * 0.01;
   const tax = stateTax + municipalTax;
   const total = subtotal + tax;
 
-  return {
-    tuition,
-    registration,
-    material,
-    originalSubtotal,
-    discount,
-    subtotal,
-    stateTax,
-    municipalTax,
-    tax,
-    total,
-  };
+  return { tuition, registration, material, eLearning, travel, originalSubtotal, discount, subtotal, stateTax, municipalTax, tax, total };
 }
 
 function getAdjustedProgramLessons(
@@ -560,6 +555,7 @@ const stepValidationFields: Record<string, (keyof EnrollmentFormValues)[]> = {
     "paymentPlan",
     "interviewDate",
     "discountPromotion",
+    "discountValueType",
     "discountAmount",
     "discountReason",
   ],
@@ -1543,33 +1539,23 @@ function StepContent({
           </div>
 
         <FieldRow>
-          <Field
-            label="Tuition"
-            value={values.tuition ?? ""}
-            onChange={(value) => setField("tuition", value)}
-            placeholder="Example: 1748.00"
-          />
-          <Field
-            label="Registration fee"
-            value={values.registrationFee ?? ""}
-            onChange={(value) => setField("registrationFee", value)}
-            placeholder="Example: 25.00"
-          />
+          <Field label="Tuition" value={values.tuition ?? ""} onChange={(value) => setField("tuition", value)} placeholder="Example: 1748.00" />
+          <Field label="Registration fee" value={values.registrationFee ?? ""} onChange={(value) => setField("registrationFee", value)} placeholder="Example: 25.00" />
         </FieldRow>
 
         <FieldRow>
-          <Field
-            label="Material fee"
-            value={values.materialFee ?? ""}
-            onChange={(value) => setField("materialFee", value)}
-            placeholder="Example: 103.00"
-          />
-          <Field
-            label="Deposit"
-            value={values.deposit ?? ""}
-            onChange={(value) => setField("deposit", value)}
-            placeholder="Example: 100.00"
-          />
+          <Field label="Material fee" value={values.materialFee ?? ""} onChange={(value) => setField("materialFee", value)} placeholder="Example: 103.00" />
+          <Field label="eLearning" value={values.eLearningFee ?? ""} onChange={(value) => setField("eLearningFee", value)} placeholder="Example: 0.00" />
+        </FieldRow>
+
+        <FieldRow>
+          <Field label="Travel amount" value={values.travelAmount ?? ""} onChange={(value) => setField("travelAmount", value)} placeholder="Example: 0.00" />
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
+            <p className="font-semibold text-slate-950">Charge calculation</p>
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">
+              Tuition is calculated from lessons x rate. Registration, material, eLearning, and travel stay as separate charge lines.
+            </p>
+          </div>
         </FieldRow>
 
         <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
@@ -1587,6 +1573,7 @@ function StepContent({
               onChange={(value) => {
                 setField("discountPromotion", value);
                 if (value === "none") {
+                  setField("discountValueType", "amount");
                   setField("discountAmount", "");
                   setField("discountReason", "");
                   setField("interviewDate", "");
@@ -1606,15 +1593,63 @@ function StepContent({
               ))}
             </NativeSelect>
 
-            <Field
-              label="Discount amount"
-              value={values.discountAmount ?? ""}
-              onChange={(value) => setField("discountAmount", formatMoneyInput(value))}
-              onBlur={() => setField("discountAmount", normalizeMoneyInput(values.discountAmount ?? ""))}
-              placeholder="Example: 100.00"
-              helper="Enter dollar amount, not percentage."
-              error={errors.discountAmount}
-            />
+            <div className="space-y-2">
+              <Label className={fieldLabelClassName}>Discount value type</Label>
+              <div className="grid grid-cols-2 gap-2 rounded-2xl border border-slate-200 bg-white p-1 shadow-sm">
+                <Button
+                  type="button"
+                  variant={(values.discountValueType ?? "amount") === "amount" ? "default" : "ghost"}
+                  onClick={() => {
+                    setField("discountValueType", "amount");
+                    setField("discountAmount", "");
+                  }}
+                  className="h-9 rounded-xl text-sm font-semibold"
+                >
+                  Dollar amount
+                </Button>
+                <Button
+                  type="button"
+                  variant={values.discountValueType === "percent" ? "default" : "ghost"}
+                  onClick={() => {
+                    setField("discountValueType", "percent");
+                    setField("discountAmount", "");
+                  }}
+                  className="h-9 rounded-xl text-sm font-semibold"
+                >
+                  Percentage
+                </Button>
+              </div>
+
+              <Field
+                label={values.discountValueType === "percent" ? "Discount percentage" : "Discount amount"}
+                value={values.discountAmount ?? ""}
+                onChange={(value) =>
+                  setField(
+                    "discountAmount",
+                    values.discountValueType === "percent"
+                      ? value.replace(/[^0-9.]/g, "").slice(0, 6)
+                      : formatMoneyInput(value)
+                  )
+                }
+                onBlur={() => {
+                  if (values.discountValueType === "percent") {
+                    const parsed = Number.parseFloat(values.discountAmount ?? "");
+                    setField(
+                      "discountAmount",
+                      Number.isFinite(parsed)
+                        ? String(Math.min(Math.max(parsed, 0), 100))
+                        : ""
+                    );
+                    return;
+                  }
+
+                  setField("discountAmount", normalizeMoneyInput(values.discountAmount ?? ""));
+                }}
+                placeholder={values.discountValueType === "percent" ? "Example: 10" : "Example: 100.00"}
+                helper={values.discountValueType === "percent" ? "Enter percent from 0 to 100." : "Enter fixed dollar amount."}
+                error={errors.discountAmount}
+              />
+            </div>
           </FieldRow>
 
           {values.discountPromotion === "same_day_interview" ? (
@@ -1707,65 +1742,47 @@ function StepContent({
           </div>
         ) : null}
 
-        <NativeSelect
-          label="Payment plan"
-          required
-          value={values.paymentPlan}
-          onChange={(value) =>
-            setField("paymentPlan", value as EnrollmentFormValues["paymentPlan"])
-          }
-          helper="If not Full Paid, authorization document will be required."
-          error={errors.paymentPlan}
-        >
-          <option value="">Select payment plan</option>
-          {paymentPlanOptions.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </NativeSelect>
-
-        {selectedProgramPackage ? (
-          <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4 text-sm text-blue-950">
-            <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">
-              Payment schedule preview
+        <div className="rounded-2xl border border-slate-200 bg-white p-4">
+          <div className="mb-4">
+            <h4 className="text-sm font-semibold text-slate-950">Payment Plan</h4>
+            <p className="text-xs leading-5 text-muted-foreground">
+              Select Full Paid or a payment plan. Payment schedule fields only open when a plan is selected.
             </p>
-
-            {knownPaymentBreakdown ? (
-              <div className="mt-2 space-y-1">
-                <p>
-                  <span className="font-semibold">Deposit:</span>{" "}
-                  {formatCatalogMoney(knownPaymentBreakdown.deposit)}
-                </p>
-                <p>
-                  <span className="font-semibold">At confirmation:</span>{" "}
-                  {formatCatalogMoney(knownPaymentBreakdown.confirmation)}
-                </p>
-                <p>
-                  <span className="font-semibold">Remaining payments:</span>{" "}
-                  {knownPaymentBreakdown.installmentCount} payments of{" "}
-                  {formatCatalogMoney(knownPaymentBreakdown.installmentAmount)}{" "}
-                  {knownPaymentBreakdown.cadence}
-                </p>
-                <p className="text-xs leading-5 text-blue-900">
-                  {knownPaymentBreakdown.note}
-                </p>
-              </div>
-            ) : (
-              <p className="mt-2 text-xs leading-5 text-blue-900">
-                This package has pricing loaded, but the exact deposit, confirmation payment,
-                and installment schedule still need payment setup confirmation before automation.
-              </p>
-            )}
           </div>
-        ) : null}
 
-        <div className="rounded-2xl border bg-amber-50 p-4 text-sm text-amber-900">
-          {rules.requiresPaymentAuthorization
-            ? "Payment authorization will be required for this payment plan."
-            : "Full Paid selected. Payment authorization is not required by default."}
-        </div>
+          <NativeSelect
+            label="Payment plan"
+            required
+            value={values.paymentPlan}
+            onChange={(value) => setField("paymentPlan", value as EnrollmentFormValues["paymentPlan"])}
+            helper="If not Full Paid, payment authorization and payment schedule details are required."
+            error={errors.paymentPlan}
+          >
+            <option value="">Select payment plan</option>
+            {paymentPlanOptions.map((option) => (
+              <option key={option.value} value={option.value}>{option.label}</option>
+            ))}
+          </NativeSelect>
 
+          {values.paymentPlan && values.paymentPlan !== "full_paid" ? (
+            <div className="mt-5 space-y-4 rounded-2xl border border-blue-100 bg-blue-50 p-4">
+              <p className="text-sm font-semibold text-blue-950">Payment schedule</p>
+              <FieldRow>
+                <Field label="Deposit" value={values.deposit ?? ""} onChange={(value) => setField("deposit", formatMoneyInput(value))} onBlur={() => setField("deposit", normalizeMoneyInput(values.deposit ?? ""))} placeholder="Example: 75.00" />
+                <Field label="Confirmation payment" value={values.confirmationPayment ?? ""} onChange={(value) => setField("confirmationPayment", formatMoneyInput(value))} onBlur={() => setField("confirmationPayment", normalizeMoneyInput(values.confirmationPayment ?? ""))} placeholder="Example: 184.10" />
+              </FieldRow>
+              <FieldRow>
+                <Field label="Number of payments" value={values.installmentCount ?? ""} onChange={(value) => setField("installmentCount", value.replace(/\D/g, "").slice(0, 2))} placeholder="Example: 7" />
+                <Field label="Payment amount" value={values.installmentAmount ?? ""} onChange={(value) => setField("installmentAmount", formatMoneyInput(value))} onBlur={() => setField("installmentAmount", normalizeMoneyInput(values.installmentAmount ?? ""))} placeholder="Example: 112.00" />
+              </FieldRow>
+            </div>
+          ) : null}
+
+          <div className="mt-4 rounded-2xl border bg-amber-50 p-4 text-sm text-amber-900">
+            {rules.requiresPaymentAuthorization
+              ? "Payment authorization will be required for this payment plan."
+              : "Full Paid selected. Payment authorization is not required by default."}
+          </div>
         </div>
 
         {values.enrollmentType === "private_intensive" ? (
@@ -1786,6 +1803,7 @@ function StepContent({
           - Non-standard program arrangements
           - Manager approval request routing
         */}
+        </div>
       </div>
     );
   }
@@ -2306,9 +2324,9 @@ function StepContent({
                     -{formatCatalogMoney(agreementTotals.discount)}
                   </span>
                   <span>eLearning</span>
-                  <span className="font-bold">$0.00</span>
+                  <span className="font-bold">{formatCatalogMoney(agreementTotals.eLearning)}</span>
                   <span>Travel Amount</span>
-                  <span className="font-bold">$0.00</span>
+                  <span className="font-bold">{formatCatalogMoney(agreementTotals.travel)}</span>
                 </div>
               </section>
             </div>

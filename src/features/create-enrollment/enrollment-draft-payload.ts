@@ -38,9 +38,18 @@ export function buildEnrollmentDraftPayload(values: EnrollmentFormValues) {
   const tuition = parseMoney(values.tuition);
   const registrationFee = parseMoney(values.registrationFee);
   const materialFee = parseMoney(values.materialFee);
+  const eLearningFee = parseMoney(values.eLearningFee);
+  const travelAmount = parseMoney(values.travelAmount);
   const depositAmount = parseMoney(values.deposit);
-  const discountAmount = parseMoney(values.discountAmount);
-  const originalSubtotalAmount = tuition + registrationFee + materialFee;
+  const confirmationPayment = parseMoney(values.confirmationPayment);
+  const installmentCount = parseOptionalNumber(values.installmentCount) ?? 0;
+  const installmentAmount = parseMoney(values.installmentAmount);
+  const rawDiscountValue = parseMoney(values.discountAmount);
+  const originalSubtotalAmount = tuition + registrationFee + materialFee + eLearningFee + travelAmount;
+  const discountAmount =
+    values.discountValueType === "percent"
+      ? originalSubtotalAmount * (Math.min(rawDiscountValue, 100) / 100)
+      : rawDiscountValue;
   const adjustedSubtotalAmount = Math.max(originalSubtotalAmount - discountAmount, 0);
   const stateTaxAmount = adjustedSubtotalAmount * 0.105;
   const municipalTaxAmount = adjustedSubtotalAmount * 0.01;
@@ -94,6 +103,11 @@ export function buildEnrollmentDraftPayload(values: EnrollmentFormValues) {
 
     paymentPlanPayload: {
       plan_type: values.paymentPlan,
+      tuition_amount: tuition,
+      registration_fee_amount: registrationFee,
+      material_fee_amount: materialFee,
+      elearning_fee_amount: eLearningFee,
+      travel_amount: travelAmount,
       original_subtotal_amount: originalSubtotalAmount,
       discount_amount: discountAmount,
       adjusted_subtotal_amount: adjustedSubtotalAmount,
@@ -103,6 +117,9 @@ export function buildEnrollmentDraftPayload(values: EnrollmentFormValues) {
       total_amount: totalAmount,
       deposit_amount: depositAmount,
       balance_amount: balanceAmount,
+      confirmation_payment_amount: confirmationPayment,
+      installment_count: installmentCount,
+      installment_amount: installmentAmount,
       requires_authorization: rules.requiresPaymentAuthorization,
       status: values.paymentPlan === "full_paid"
         ? "full_paid"
@@ -113,6 +130,8 @@ export function buildEnrollmentDraftPayload(values: EnrollmentFormValues) {
 
     discountPayload: {
       promotion_type: values.discountPromotion ?? "none",
+      value_type: values.discountValueType ?? "amount",
+      value: rawDiscountValue,
       amount: discountAmount,
       reason: values.discountReason || null,
       interview_date: values.interviewDate || null,

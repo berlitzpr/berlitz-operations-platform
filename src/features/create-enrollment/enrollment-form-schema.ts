@@ -117,10 +117,16 @@ export const enrollmentFormSchema = z
     tuition: z.string().optional(),
     registrationFee: z.string().optional(),
     materialFee: z.string().optional(),
+    eLearningFee: z.string().optional(),
+    travelAmount: z.string().optional(),
     deposit: z.string().optional(),
+    confirmationPayment: z.string().optional(),
+    installmentCount: z.string().optional(),
+    installmentAmount: z.string().optional(),
 
     paymentPlan: z.string().min(1, "Payment plan is required."),
     discountPromotion: z.string().optional(),
+    discountValueType: z.string().optional(),
     discountAmount: z.string().optional(),
     discountReason: z.string().optional(),
 
@@ -151,7 +157,7 @@ export const enrollmentFormSchema = z
       context.addIssue({
         code: "custom",
         path: ["discountAmount"],
-        message: "Discount amount is required when a discount is selected.",
+        message: "Discount value is required when a discount is selected.",
       });
     }
 
@@ -287,9 +293,15 @@ export function getDefaultEnrollmentValues(): EnrollmentFormValues {
     tuition: "",
     registrationFee: "",
     materialFee: "",
+    eLearningFee: "",
+    travelAmount: "",
     deposit: "",
+    confirmationPayment: "",
+    installmentCount: "",
+    installmentAmount: "",
     paymentPlan: "",
     discountPromotion: "none",
+    discountValueType: "amount",
     discountAmount: "",
     discountReason: "",
 
