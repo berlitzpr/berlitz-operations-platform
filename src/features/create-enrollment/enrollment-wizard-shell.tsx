@@ -1766,7 +1766,12 @@ function StepContent({
 
           {values.paymentPlan && values.paymentPlan !== "full_paid" ? (
             <div className="mt-5 space-y-4 rounded-2xl border border-blue-100 bg-blue-50 p-4">
-              <p className="text-sm font-semibold text-blue-950">Payment schedule</p>
+              <div>
+                <p className="text-sm font-semibold text-blue-950">Payment schedule</p>
+                <p className="mt-1 text-xs leading-5 text-blue-900">
+                  Enter payment amounts before tax. The agreement will show "+ tax" next to each scheduled payment.
+                </p>
+              </div>
               <FieldRow>
                 <Field label="Deposit" value={values.deposit ?? ""} onChange={(value) => setField("deposit", formatMoneyInput(value))} onBlur={() => setField("deposit", normalizeMoneyInput(values.deposit ?? ""))} placeholder="Example: 75.00" />
                 <Field label="Confirmation payment" value={values.confirmationPayment ?? ""} onChange={(value) => setField("confirmationPayment", formatMoneyInput(value))} onBlur={() => setField("confirmationPayment", normalizeMoneyInput(values.confirmationPayment ?? ""))} placeholder="Example: 184.10" />
