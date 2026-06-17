@@ -2477,84 +2477,94 @@ function StepContent({
               </section>
             </div>
 
-            <div className="mt-3 grid grid-cols-[1.35fr_0.85fr] gap-4">
-              <section className="rounded-md border border-slate-300 p-3">
-                <div className="mb-2 grid grid-cols-[1fr_1fr] gap-2 border-b border-slate-300 pb-1 text-xs font-bold uppercase tracking-wide">
-                  <span>Schedule of Lessons</span>
-                  <span>Time</span>
-                </div>
-                {(getSelectedScheduleDays(values.preferredDays).length
-                  ? getSelectedScheduleDays(values.preferredDays)
-                  : ["Pending schedule"]
-                ).map((day) => (
-                  <div
-                    key={day}
-                    className="grid grid-cols-[1fr_1fr] gap-2 border-b border-slate-200 py-1"
-                  >
-                    <span className="font-bold">{day}</span>
-                    <span>{day === "Pending schedule" ? "" : values.preferredTime}</span>
+              <div
+                className={cn(
+                  "mt-3 grid gap-4",
+                  values.paymentPlan && values.paymentPlan !== "full_paid"
+                    ? "grid-cols-[1.15fr_0.85fr_0.9fr]"
+                    : "grid-cols-[1.25fr_0.9fr]"
+                )}
+              >
+                <section className="rounded-md border border-slate-300 p-3">
+                  <div className="mb-2 grid grid-cols-[1fr_1fr] gap-2 border-b border-slate-300 pb-1 text-xs font-bold uppercase tracking-wide">
+                    <span>Schedule of Lessons</span>
+                    <span>Time</span>
                   </div>
-                ))}
-              </section>
+                  {(getSelectedScheduleDays(values.preferredDays).length
+                    ? getSelectedScheduleDays(values.preferredDays)
+                    : ["Pending schedule"]
+                  ).map((day) => (
+                    <div
+                      key={day}
+                      className="grid grid-cols-[1fr_1fr] gap-2 border-b border-slate-200 py-1"
+                    >
+                      <span className="font-bold">{day}</span>
+                      <span>{day === "Pending schedule" ? "" : values.preferredTime}</span>
+                    </div>
+                  ))}
+                </section>
 
-              <section className="self-end rounded-md border-2 border-slate-950 p-3">
-                <div className="grid grid-cols-[1fr_auto] gap-y-1">
-                  <span>Subtotal</span>
-                  <span className="font-bold">{formatCatalogMoney(agreementTotals.originalSubtotal)}</span>
-                  <span>Discount</span>
-                  <span className="font-bold">
-                    {agreementTotals.discount > 0
-                      ? formatCatalogMoney(-agreementTotals.discount)
-                      : "-"}
-                  </span>
-                  <span>Adjusted Subtotal</span>
-                  <span className="font-bold">{formatCatalogMoney(agreementTotals.subtotal)}</span>
-                  <span>State Tax 10.5%</span>
-                  <span className="font-bold">{formatCatalogMoney(agreementTotals.stateTax)}</span>
-                  <span>Municipal Tax 1%</span>
-                  <span className="font-bold">{formatCatalogMoney(agreementTotals.municipalTax)}</span>
-                  <span className="text-base font-black">Total</span>
-                  <span className="text-base font-black">
-                    {formatCatalogMoney(agreementTotals.total)}
-                  </span>
-                </div>
-                <div className="mt-2 border-t border-slate-950 pt-2">
-                  <p className="mb-1 font-bold">Payment Schedule</p>
-                  <div className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-1">
-                    <span>Deposit</span>
-                    <span className="font-bold">{values.deposit || "Pending"}</span>
-                    <span>Confirmation Payment</span>
+                {values.paymentPlan && values.paymentPlan !== "full_paid" ? (
+                  <section className="rounded-md border border-slate-300 p-3">
+                    <h4 className="mb-2 border-b border-slate-300 pb-1 text-xs font-bold uppercase tracking-wide">
+                      Payment Schedule
+                    </h4>
+                    <div className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-1">
+                      <span>Deposit</span>
+                      <span className="font-bold">{values.deposit ? `${values.deposit} + tax` : "Pending"}</span>
+                      <span>Confirmation Payment</span>
+                      <span className="font-bold">
+                        {values.confirmationPayment
+                          ? `${values.confirmationPayment} + tax`
+                          : knownPaymentBreakdown
+                            ? `${formatCatalogMoney(knownPaymentBreakdown.confirmation)} + tax`
+                            : "Pending"}
+                      </span>
+                      <span>Installments</span>
+                      <span className="font-bold text-right">
+                        {values.installmentCount && values.installmentAmount
+                          ? `${values.installmentCount} payments of ${values.installmentAmount} + tax`
+                          : knownPaymentBreakdown
+                            ? `${knownPaymentBreakdown.installmentCount} payments of ${formatCatalogMoney(knownPaymentBreakdown.installmentAmount)} + tax`
+                            : "Pending"}
+                      </span>
+                      <span>Frequency</span>
+                      <span className="font-bold">
+                        {values.paymentPlan === "every_2_weeks"
+                          ? "Every 2 weeks"
+                          : values.paymentPlan === "monthly"
+                            ? "Monthly"
+                            : values.paymentPlan === "by_level"
+                              ? "By level"
+                              : values.paymentPlan === "custom"
+                                ? "Custom"
+                                : knownPaymentBreakdown?.cadence ?? "-"}
+                      </span>
+                    </div>
+                  </section>
+                ) : null}
+
+                <section className="rounded-md border-2 border-slate-950 p-3">
+                  <div className="grid grid-cols-[1fr_auto] gap-y-1">
+                    <span>Subtotal</span>
+                    <span className="font-bold">{formatCatalogMoney(agreementTotals.originalSubtotal)}</span>
+                    <span>Discount</span>
                     <span className="font-bold">
-                      {values.confirmationPayment
-                        ? `${values.confirmationPayment} + tax`
-                        : knownPaymentBreakdown
-                          ? `${formatCatalogMoney(knownPaymentBreakdown.confirmation)} + tax`
-                          : "Pending"}
+                      {agreementTotals.discount > 0
+                        ? formatCatalogMoney(-agreementTotals.discount)
+                        : "-"}
                     </span>
-                    <span>Installments</span>
-                    <span className="font-bold text-right">
-                      {values.installmentCount && values.installmentAmount
-                        ? `${values.installmentCount} payments of ${values.installmentAmount} + tax`
-                        : knownPaymentBreakdown
-                          ? `${knownPaymentBreakdown.installmentCount} payments of ${formatCatalogMoney(knownPaymentBreakdown.installmentAmount)} + tax`
-                          : "Pending"}
-                    </span>
-                    <span>Frequency</span>
-                    <span className="font-bold">
-                      {values.paymentPlan === "every_2_weeks"
-                        ? "Every 2 weeks"
-                        : values.paymentPlan === "monthly"
-                          ? "Monthly"
-                          : values.paymentPlan === "by_level"
-                            ? "By level"
-                            : values.paymentPlan === "custom"
-                              ? "Custom"
-                              : knownPaymentBreakdown?.cadence ?? "-"}
-                    </span>
+                    <span>Adjusted Subtotal</span>
+                    <span className="font-bold">{formatCatalogMoney(agreementTotals.subtotal)}</span>
+                    <span>State Tax 10.5%</span>
+                    <span className="font-bold">{formatCatalogMoney(agreementTotals.stateTax)}</span>
+                    <span>Municipal Tax 1%</span>
+                    <span className="font-bold">{formatCatalogMoney(agreementTotals.municipalTax)}</span>
+                    <span className="text-base font-black">Total</span>
+                    <span className="text-base font-black">{formatCatalogMoney(agreementTotals.total)}</span>
                   </div>
-                </div>
-              </section>
-            </div>
+                </section>
+              </div>
 
             <section className="mt-3 rounded-md border border-slate-300 p-3">
               <h4 className="text-center text-xs font-black uppercase tracking-wide underline">
