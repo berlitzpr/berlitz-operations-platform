@@ -1578,7 +1578,7 @@ function StepContent({
                 Tuition is calculated from lessons x rate. Registration, material, eLearning, and travel stay as separate charge lines.
               </p>
             </div>
-          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4">
             <div className="mb-4">
               <h4 className="text-sm font-semibold text-slate-950">Discount / Promotion</h4>
               <p className="text-xs leading-5 text-muted-foreground">
