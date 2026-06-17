@@ -701,6 +701,24 @@ function StepContent({
     : new Date().getFullYear().toString().slice(-2);
   const customerIdPrefix = `003-120-${customerIdYear}-`;
   const studentName = `${values.firstName} ${values.lastName}`.trim();
+  const annexDayLabels: Record<string, string> = {
+    monday: "Lunes",
+    tuesday: "Martes",
+    wednesday: "Miércoles",
+    thursday: "Jueves",
+    friday: "Viernes",
+    saturday: "Sábado",
+    monday_wednesday: "Lunes y Miércoles",
+    tuesday_thursday: "Martes y Jueves",
+  };
+  const annexPreferredDays = annexDayLabels[values.preferredDays ?? ""] ?? values.preferredDays;
+  const annexScheduleSummary = [
+    annexPreferredDays,
+    values.preferredTime,
+    values.weeklyClassHours ? `(${values.weeklyClassHours} horas por semana)` : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   if (stepId === "student") {
     return (
@@ -1479,7 +1497,7 @@ function StepContent({
                 <li>
                   Las clases se programan:{" "}
                   <span className="bg-yellow-200 font-bold">
-                    Lunes a Jueves de 6:00-7:30 pm (6 horas por semana)
+                    {annexScheduleSummary || "____________________________"}
                   </span>
                   .
                 </li>
