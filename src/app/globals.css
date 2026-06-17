@@ -170,6 +170,30 @@ textarea {
     display: none !important;
   }
 
+  body[data-print-mode="private-intensive-annex"] * {
+    visibility: hidden;
+  }
+
+  body[data-print-mode="private-intensive-annex"] .private-intensive-annex-print-area,
+  body[data-print-mode="private-intensive-annex"] .private-intensive-annex-print-area * {
+    visibility: visible;
+  }
+
+  body[data-print-mode="private-intensive-annex"] .private-intensive-annex-print-area {
+    position: absolute;
+    inset: 0 auto auto 0;
+    width: 100%;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    background: white !important;
+    color: #0f172a !important;
+  }
+
+  body[data-print-mode="private-intensive-annex"] .private-intensive-annex-screen-only {
+    display: none !important;
+  }
+
   @page {
     size: letter;
     margin: 0.35in;

@@ -606,6 +606,7 @@ function StepContent({
   onPrintCcAuthorization,
   onClearCcAuthorization,
   ccAuthorizationReady,
+  onPrintPrivateIntensiveAnnex,
 }: Readonly<{
   stepId: string;
   values: EnrollmentFormValues;
@@ -626,6 +627,7 @@ function StepContent({
   onPrintCcAuthorization: () => void;
   onClearCcAuthorization: () => void;
   ccAuthorizationReady: boolean;
+  onPrintPrivateIntensiveAnnex: () => void;
 }>) {
   if (stepId === "path") {
     return (
@@ -698,6 +700,25 @@ function StepContent({
     ? new Date(`${values.enrollmentDate}T00:00:00`).getFullYear().toString().slice(-2)
     : new Date().getFullYear().toString().slice(-2);
   const customerIdPrefix = `003-120-${customerIdYear}-`;
+  const studentName = `${values.firstName} ${values.lastName}`.trim();
+  const annexDayLabels: Record<string, string> = {
+    monday: "Lunes",
+    tuesday: "Martes",
+    wednesday: "Miércoles",
+    thursday: "Jueves",
+    friday: "Viernes",
+    saturday: "Sábado",
+    monday_wednesday: "Lunes y Miércoles",
+    tuesday_thursday: "Martes y Jueves",
+  };
+  const annexPreferredDays = annexDayLabels[values.preferredDays ?? ""] ?? values.preferredDays;
+  const annexScheduleSummary = [
+    annexPreferredDays,
+    values.preferredTime,
+    values.weeklyClassHours ? `(${values.weeklyClassHours} horas por semana)` : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   if (stepId === "student") {
     return (
@@ -1413,6 +1434,110 @@ function StepContent({
         />
       </div>
 
+      {rules.isPrivateIntensive ? (
+        <Card className="private-intensive-annex-print-area rounded-2xl border-slate-200 bg-white">
+          <CardHeader className="private-intensive-annex-screen-only space-y-3">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <CardTitle>Private Intensive Annex</CardTitle>
+                <CardDescription>
+                  Printable annex for Private Intensive fixed price/term programs.
+                </CardDescription>
+              </div>
+              <Button
+                type="button"
+                onClick={onPrintPrivateIntensiveAnnex}
+                className="h-11 rounded-2xl bg-[#0057B8] px-5 font-semibold hover:bg-[#004899]"
+              >
+                <Printer className="mr-2 h-4 w-4" />
+                Print / Save PDF
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="mx-auto max-w-[760px] bg-white p-6 text-[13px] leading-6 text-slate-950">
+              <div className="mb-8 flex justify-end text-3xl font-bold text-[#82a7ee]">
+                Berlitz
+              </div>
+
+              <div className="mb-10 grid gap-4 text-sm font-semibold md:grid-cols-[1fr_auto]">
+                <p>
+                  Anejo de matrícula #{" "}
+                  <span className="inline-block min-w-44 border-b border-slate-900 align-baseline">
+                    {customerIdPreview ?? ""}
+                  </span>
+                </p>
+                <p>Centro: Hato Rey</p>
+              </div>
+
+              <p className="mb-4 text-sm font-semibold">
+                Nombre de estudiante:{" "}
+                <span className="inline-block min-w-72 border-b border-slate-900 align-baseline">
+                  {studentName}
+                </span>
+              </p>
+
+              <h3 className="mb-4 text-sm font-bold underline">
+                Privado Intensivo de Precio y Término Fijo
+              </h3>
+
+              <p className="mb-4">
+                Entiendo que el programa en el que me matriculé de Privado Intensivo
+                de Precio y Término Fijo es una oferta especial, que incluye los
+                términos abajo indicados:
+              </p>
+
+              <ol className="ml-6 list-decimal space-y-2">
+                <li>
+                  El programa debe estar pago en su totalidad al comienzo de este o
+                  tener orden de compra de ser de compañía.
+                </li>
+                <li>El programa no es cancelable ni reembolsable.</li>
+                <li>Cada nivel se debe completar en 5 semanas consecutivas.</li>
+                <li>
+                  Las clases se programan:{" "}
+                  <span className="bg-yellow-200 font-bold">
+                    {annexScheduleSummary || "____________________________"}
+                  </span>
+                  .
+                </li>
+                <li>
+                  El estudiante solo tendrá 2 oportunidades para reprogramar, sin
+                  cargo adicional. Las sesiones de clase a reprogramar deben
+                  solicitarse antes de las 5:00 pm del día laborable previo a la clase.
+                  Para las clases del lunes, la reprogramación debe solicitarse antes
+                  del sábado anterior a la clase antes de las 11:00 am. Después de 2
+                  reprogramaciones, las clases no se pueden reprogramar,
+                  independientemente de la razón.
+                </li>
+                <li>
+                  Las 2 reprogramaciones permitidas están sujetas a la disponibilidad.
+                </li>
+                <li>
+                  De necesitar reprogramaciones adicionales, puede obtenerlas a un
+                  precio especial de $15.00 por cada periodo de 45 minutos.
+                </li>
+              </ol>
+
+              <div className="mt-16 grid gap-8 md:grid-cols-3">
+                <div>
+                  <div className="h-8 border-b border-slate-900" />
+                  <p className="mt-2 text-xs font-semibold">Firma del estudiante</p>
+                </div>
+                <div>
+                  <div className="h-8 border-b border-slate-900" />
+                  <p className="mt-2 text-xs font-semibold">Fecha</p>
+                </div>
+                <div>
+                  <div className="h-8 border-b border-slate-900" />
+                  <p className="mt-2 text-xs font-semibold">Firma del salesperson</p>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
+
       {rules.requiresPaymentAuthorization ? (
         <Card className="cc-auth-print-area rounded-2xl border-slate-200 bg-white">
           <CardHeader className="space-y-3">
@@ -1562,8 +1687,12 @@ export function EnrollmentWizardShell() {
 
   useEffect(() => {
     const handleAfterPrint = () => {
+      const printMode = document.body.dataset.printMode;
       delete document.body.dataset.printMode;
-      setCcAuthorization(defaultCcAuthorizationValues);
+
+      if (printMode === "cc-auth") {
+        setCcAuthorization(defaultCcAuthorizationValues);
+      }
     };
 
     window.addEventListener("afterprint", handleAfterPrint);
@@ -1597,6 +1726,11 @@ export function EnrollmentWizardShell() {
   const printCcAuthorization = () => {
     if (!ccAuthorizationReady) return;
     document.body.dataset.printMode = "cc-auth";
+    window.print();
+  };
+
+  const printPrivateIntensiveAnnex = () => {
+    document.body.dataset.printMode = "private-intensive-annex";
     window.print();
   };
 
@@ -1893,6 +2027,7 @@ export function EnrollmentWizardShell() {
                   onPrintCcAuthorization={printCcAuthorization}
                   onClearCcAuthorization={clearCcAuthorization}
                   ccAuthorizationReady={ccAuthorizationReady}
+                  onPrintPrivateIntensiveAnnex={printPrivateIntensiveAnnex}
                 />
 
             {draftMessage ? (
