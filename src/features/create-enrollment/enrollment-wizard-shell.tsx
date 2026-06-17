@@ -2570,6 +2570,51 @@ function StepContent({
         </CardContent>
       </Card>
 
+        {rules.requiresPaymentAuthorization ? (
+          <Card className="rounded-2xl">
+            <CardHeader>
+              <CardTitle>Credit Card Authorization Preview</CardTitle>
+              <CardDescription>
+                Required for enrollments with a payment plan.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="mx-auto max-w-[940px] border border-slate-300 bg-white p-7 text-[11px] leading-[1.25] text-slate-950 shadow-sm">
+                <div className="border-b-2 border-slate-950 pb-3 text-center">
+                  <h3 className="text-[20px] font-black uppercase tracking-[0.08em]">Credit Card Authorization</h3>
+                  <p className="mt-1 text-slate-600">Payment plan authorization for Berlitz Puerto Rico enrollment.</p>
+                </div>
+                <div className="mt-4 grid gap-3 md:grid-cols-2">
+                  <div className="rounded-md border border-slate-300 p-3">
+                    <p><span className="text-slate-600">Student:</span> <span className="font-bold">{getAgreementStudentName(values) || "Pending student"}</span></p>
+                    <p><span className="text-slate-600">Customer ID:</span> <span className="font-bold">{customerIdPreview ?? "Pending"}</span></p>
+                    <p><span className="text-slate-600">Payment plan:</span> <span className="font-bold">{paymentPlanOptions.find((option) => option.value === values.paymentPlan)?.label ?? "Pending"}</span></p>
+                  </div>
+                  <div className="rounded-md border border-slate-300 p-3">
+                    <div className="grid grid-cols-[1fr_auto] gap-y-1">
+                      <span>Deposit</span>
+                      <span className="font-bold">{values.deposit || "-"}</span>
+                      <span>Confirmation Payment</span>
+                      <span className="font-bold">{values.confirmationPayment ? `${values.confirmationPayment} + tax` : "-"}</span>
+                      <span>Installments</span>
+                      <span className="font-bold text-right">{values.installmentCount && values.installmentAmount ? `${values.installmentCount} payments of ${values.installmentAmount} + tax` : "-"}</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-5 rounded-md border border-slate-300 p-3">
+                  <p className="font-bold">Authorization</p>
+                  <p className="mt-1 text-slate-700">I authorize Berlitz Puerto Rico to charge my credit card according to the payment schedule described above.</p>
+                  <div className="mt-5 grid gap-4 md:grid-cols-3">
+                    <p>Cardholder Name: <span className="inline-block w-32 border-b border-slate-950">&nbsp;</span></p>
+                    <p>Signature: <span className="inline-block w-32 border-b border-slate-950">&nbsp;</span></p>
+                    <p>Date: <span className="inline-block w-24 border-b border-slate-950">&nbsp;</span></p>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ) : null}
+
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         <RequirementCard
           title="Enrollment Agreement"
