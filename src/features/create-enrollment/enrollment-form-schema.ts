@@ -110,6 +110,7 @@ export const enrollmentFormSchema = z
     scheduleMode: z.string().optional(),
     preferredDays: z.string().optional(),
     preferredTime: z.string().optional(),
+    scheduleFlexibilityStatus: z.string().optional(),
     scheduleFlexibilityNotes: z.string().optional(),
     weeklyClassHours: z.string().optional(),
     privateScheduleNotes: z.string().optional(),
@@ -137,6 +138,25 @@ export const enrollmentFormSchema = z
     notes: z.string().optional(),
   })
   .superRefine((values, context) => {
+      if (!values.scheduleFlexibilityStatus?.trim()) {
+        context.addIssue({
+          code: "custom",
+          path: ["scheduleFlexibilityStatus"],
+          message: "Select whether the student has schedule flexibility.",
+        });
+      }
+
+      if (
+        values.scheduleFlexibilityStatus === "has_flexibility" &&
+        !values.scheduleFlexibilityNotes?.trim()
+      ) {
+        context.addIssue({
+          code: "custom",
+          path: ["scheduleFlexibilityNotes"],
+          message: "Enter the student's alternate schedule availability.",
+        });
+      }
+
     if (values.language === "Other" && !values.otherLanguage?.trim()) {
       context.addIssue({
         code: "custom",
@@ -290,6 +310,7 @@ export function getDefaultEnrollmentValues(): EnrollmentFormValues {
     scheduleMode: "",
     preferredDays: "",
     preferredTime: "",
+    scheduleFlexibilityStatus: "",
     scheduleFlexibilityNotes: "",
     weeklyClassHours: "",
     privateScheduleNotes: "",

@@ -2022,17 +2022,47 @@ function StepContent({
         ) : null}
 
           {!flexiblePrivateSchedule ? (
-            <div className="space-y-2">
-              <Label className={fieldLabelClassName}>Schedule flexibility / alternatives</Label>
-              <Textarea
-                value={values.scheduleFlexibilityNotes ?? ""}
-                onChange={(event) => setField("scheduleFlexibilityNotes", event.target.value)}
-                placeholder="Example: Prefers Monday / Wednesday, but can also attend Tuesday / Thursday after 6pm or Saturday mornings."
-                className="min-h-24 rounded-2xl border-slate-200 bg-white shadow-sm focus-visible:ring-[#0057B8]"
-              />
-              <p className={helperTextClassName}>
-                Optional. Use only when the student can attend other days or times besides the preferred schedule.
-              </p>
+            <div className="space-y-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <NativeSelect
+                label="Schedule flexibility"
+                required
+                value={values.scheduleFlexibilityStatus ?? ""}
+                onChange={(value) => {
+                  setField(
+                    "scheduleFlexibilityStatus",
+                    value as EnrollmentFormValues["scheduleFlexibilityStatus"]
+                  );
+
+                  if (value !== "has_flexibility") {
+                    setField("scheduleFlexibilityNotes", "");
+                  }
+                }}
+                helper="Confirm whether the student has alternate day or time availability."
+                error={errors.scheduleFlexibilityStatus}
+              >
+                <option value="">Select flexibility</option>
+                <option value="no_flexibility">No flexibility</option>
+                <option value="has_flexibility">Has flexibility</option>
+              </NativeSelect>
+
+              {values.scheduleFlexibilityStatus === "has_flexibility" ? (
+                <div className="space-y-2">
+                  <Label className={fieldLabelClassName}>Flexible schedule alternatives</Label>
+                  <Textarea
+                    value={values.scheduleFlexibilityNotes ?? ""}
+                    onChange={(event) => setField("scheduleFlexibilityNotes", event.target.value)}
+                    placeholder="Example: Prefers Monday / Wednesday, but can also attend Tuesday / Thursday after 6pm or Saturday mornings."
+                    className="min-h-24 rounded-2xl border-slate-200 bg-white shadow-sm focus-visible:ring-[#0057B8]"
+                  />
+                  {errors.scheduleFlexibilityNotes ? (
+                    <p className={errorTextClassName}>{errors.scheduleFlexibilityNotes}</p>
+                  ) : (
+                    <p className={helperTextClassName}>
+                      Required when the student has alternate availability.
+                    </p>
+                  )}
+                </div>
+              ) : null}
             </div>
           ) : null}
 
