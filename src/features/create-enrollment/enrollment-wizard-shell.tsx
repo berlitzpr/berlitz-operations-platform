@@ -606,6 +606,7 @@ function StepContent({
   onPrintCcAuthorization,
   onClearCcAuthorization,
   ccAuthorizationReady,
+  onPrintEnrollmentAgreement,
   onPrintPrivateIntensiveAnnex,
   onPrintEnrollmentPacket,
 }: Readonly<{
@@ -628,6 +629,7 @@ function StepContent({
   onPrintCcAuthorization: () => void;
   onClearCcAuthorization: () => void;
   ccAuthorizationReady: boolean;
+  onPrintEnrollmentAgreement: () => void;
   onPrintPrivateIntensiveAnnex: () => void;
   onPrintEnrollmentPacket: () => void;
 }>) {
@@ -721,6 +723,24 @@ function StepContent({
   ]
     .filter(Boolean)
     .join(" ");
+  const agreementScheduleSummary = [
+    annexPreferredDays,
+    values.preferredTime,
+    values.weeklyClassHours ? `(${values.weeklyClassHours} hours per week)` : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+  const agreementProgramSummary = [
+    values.enrollmentType,
+    values.modality,
+    values.language === "Other" ? values.otherLanguage : values.language,
+    values.level ? `Level ${values.level}` : "",
+  ]
+    .filter(Boolean)
+    .join(" / ");
+  const agreementTotal = [values.tuition, values.registrationFee, values.materialFee]
+    .filter(Boolean)
+    .join(" + ");
 
   if (stepId === "student") {
     return (
@@ -1448,10 +1468,7 @@ function StepContent({
             <Button
               type="button"
               onClick={onPrintEnrollmentPacket}
-              disabled={
-                (!rules.isPrivateIntensive && !rules.requiresPaymentAuthorization) ||
-                (rules.requiresPaymentAuthorization && !ccAuthorizationReady)
-              }
+              disabled={rules.requiresPaymentAuthorization && !ccAuthorizationReady}
               className="h-11 rounded-2xl bg-[#0057B8] px-5 font-semibold hover:bg-[#004899]"
             >
               <Printer className="mr-2 h-4 w-4" />
@@ -1464,8 +1481,16 @@ function StepContent({
             <div className="rounded-2xl border border-slate-200 bg-white p-4">
               <p className="font-semibold text-slate-950">Enrollment Agreement</p>
               <p className="mt-1 text-xs text-muted-foreground">
-                Required. Printable template will be added in the agreement pass.
+                Included in packet.
               </p>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onPrintEnrollmentAgreement}
+                className="mt-3 h-9 rounded-2xl border-slate-200 bg-white px-4 text-xs font-semibold"
+              >
+                Print
+              </Button>
             </div>
             <div className="rounded-2xl border border-slate-200 bg-white p-4">
               <p className="font-semibold text-slate-950">Private Intensive Annex</p>
@@ -1488,6 +1513,94 @@ function StepContent({
       </Card>
 
       <div className="enrollment-packet-print-area space-y-5">
+        <Card className="enrollment-agreement-print-area rounded-2xl border-slate-200 bg-white">
+          <CardHeader className="enrollment-agreement-screen-only space-y-3">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <CardTitle>Enrollment Agreement</CardTitle>
+                <CardDescription>
+                  Printable enrollment agreement based on the current draft.
+                </CardDescription>
+              </div>
+              <Button
+                type="button"
+                onClick={onPrintEnrollmentAgreement}
+                className="h-11 rounded-2xl bg-[#0057B8] px-5 font-semibold hover:bg-[#004899]"
+              >
+                <Printer className="mr-2 h-4 w-4" />
+                Print / Save PDF
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="mx-auto max-w-[760px] bg-white p-6 text-[13px] leading-6 text-slate-950">
+              <div className="mb-8 flex items-start justify-between gap-6">
+                <div>
+                  <h2 className="text-xl font-bold tracking-tight">Enrollment Agreement</h2>
+                  <p className="mt-1 text-sm font-semibold">Berlitz Puerto Rico</p>
+                  <p className="text-xs text-slate-600">Centro: Hato Rey</p>
+                </div>
+                <div className="text-right text-3xl font-bold text-[#82a7ee]">Berlitz</div>
+              </div>
+
+              <div className="mb-8 grid gap-3 text-sm md:grid-cols-2">
+                <p><span className="font-semibold">Enrollment #:</span> {customerIdPreview ?? "Pending"}</p>
+                <p><span className="font-semibold">Enrollment date:</span> {values.enrollmentDate || "Pending"}</p>
+                <p><span className="font-semibold">Student:</span> {studentName || "Pending"}</p>
+                <p><span className="font-semibold">Email:</span> {values.email || "Pending"}</p>
+                <p><span className="font-semibold">Mobile:</span> {values.mobilePhone || "Pending"}</p>
+                <p><span className="font-semibold">Program:</span> {agreementProgramSummary || "Pending"}</p>
+                <p><span className="font-semibold">Lessons:</span> {values.regularLessons || "Pending"}</p>
+                <p><span className="font-semibold">Lesson rate:</span> {values.lessonRate || "Pending"}</p>
+                <p><span className="font-semibold">Schedule:</span> {agreementScheduleSummary || "Pending"}</p>
+                <p><span className="font-semibold">Start date:</span> {values.confirmedStartDate || values.tentativeStartDate || "Pending"}</p>
+                <p><span className="font-semibold">Contract start:</span> {values.contractStartDate || "Pending"}</p>
+                <p><span className="font-semibold">Contract expiration:</span> {values.contractExpirationDate || "Pending"}</p>
+              </div>
+
+              <div className="mb-8 rounded-2xl border border-slate-300 p-4">
+                <h3 className="mb-3 text-sm font-bold">Payment Summary</h3>
+                <div className="grid gap-2 text-sm md:grid-cols-2">
+                  <p><span className="font-semibold">Tuition:</span> {values.tuition || "$0.00"}</p>
+                  <p><span className="font-semibold">Registration fee:</span> {values.registrationFee || "$0.00"}</p>
+                  <p><span className="font-semibold">Material fee:</span> {values.materialFee || "$0.00"}</p>
+                  <p><span className="font-semibold">Deposit:</span> {values.deposit || "$0.00"}</p>
+                  <p><span className="font-semibold">Payment plan:</span> {values.paymentPlan || "Pending"}</p>
+                  <p><span className="font-semibold">Total components:</span> {agreementTotal || "$0.00"}</p>
+                </div>
+              </div>
+
+              <div className="space-y-3 text-sm">
+                <p>
+                  The student acknowledges that the information above reflects the
+                  selected enrollment draft and agrees to review all program, schedule,
+                  payment, and document requirements before signing.
+                </p>
+                <p>
+                  Additional program-specific documents may apply, including payment
+                  authorization or private intensive annexes when required by the
+                  selected enrollment.
+                </p>
+              </div>
+
+              <div className="mt-16 grid gap-8 md:grid-cols-3">
+                <div>
+                  <div className="h-8 border-b border-slate-900" />
+                  <p className="mt-2 text-xs font-semibold">Student signature</p>
+                </div>
+                <div>
+                  <div className="h-8 border-b border-slate-900" />
+                  <p className="mt-2 text-xs font-semibold">Date</p>
+                </div>
+                <div>
+                  <div className="h-8 border-b border-slate-900" />
+                  <p className="mt-2 text-xs font-semibold">Salesperson signature</p>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
       {rules.isPrivateIntensive ? (
         <Card className="private-intensive-annex-print-area rounded-2xl border-slate-200 bg-white">
           <CardHeader className="private-intensive-annex-screen-only space-y-3">
@@ -1784,6 +1897,11 @@ export function EnrollmentWizardShell() {
     window.print();
   };
 
+  const printEnrollmentAgreement = () => {
+    document.body.dataset.printMode = "enrollment-agreement";
+    window.print();
+  };
+
   const printPrivateIntensiveAnnex = () => {
     document.body.dataset.printMode = "private-intensive-annex";
     window.print();
@@ -1791,10 +1909,6 @@ export function EnrollmentWizardShell() {
 
   const printEnrollmentPacket = () => {
     const rules = getEnrollmentRules(values);
-
-    if (!rules.isPrivateIntensive && !rules.requiresPaymentAuthorization) {
-      return;
-    }
 
     if (rules.requiresPaymentAuthorization && !ccAuthorizationReady) {
       return;
@@ -2097,6 +2211,7 @@ export function EnrollmentWizardShell() {
                   onPrintCcAuthorization={printCcAuthorization}
                   onClearCcAuthorization={clearCcAuthorization}
                   ccAuthorizationReady={ccAuthorizationReady}
+                  onPrintEnrollmentAgreement={printEnrollmentAgreement}
                   onPrintPrivateIntensiveAnnex={printPrivateIntensiveAnnex}
                   onPrintEnrollmentPacket={printEnrollmentPacket}
                 />
