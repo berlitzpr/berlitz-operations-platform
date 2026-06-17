@@ -194,6 +194,43 @@ textarea {
     display: none !important;
   }
 
+  body[data-print-mode="enrollment-packet"] * {
+    visibility: hidden;
+  }
+
+  body[data-print-mode="enrollment-packet"] .enrollment-packet-print-area,
+  body[data-print-mode="enrollment-packet"] .enrollment-packet-print-area * {
+    visibility: visible;
+  }
+
+  body[data-print-mode="enrollment-packet"] .enrollment-packet-print-area {
+    position: absolute;
+    inset: 0 auto auto 0;
+    width: 100%;
+    background: white !important;
+    color: #0f172a !important;
+  }
+
+  body[data-print-mode="enrollment-packet"] .private-intensive-annex-print-area,
+  body[data-print-mode="enrollment-packet"] .cc-auth-print-area {
+    break-after: page;
+    page-break-after: always;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+  }
+
+  body[data-print-mode="enrollment-packet"] .enrollment-packet-print-area > :last-child {
+    break-after: auto;
+    page-break-after: auto;
+  }
+
+  body[data-print-mode="enrollment-packet"] .enrollment-packet-screen-only,
+  body[data-print-mode="enrollment-packet"] .private-intensive-annex-screen-only,
+  body[data-print-mode="enrollment-packet"] .cc-auth-screen-only {
+    display: none !important;
+  }
+
   @page {
     size: letter;
     margin: 0.35in;
