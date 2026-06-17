@@ -143,3 +143,26 @@ textarea {
 }
 
 
+@media print {
+  body * {
+    visibility: hidden !important;
+  }
+
+  [data-print-document],
+  [data-print-document] * {
+    visibility: visible !important;
+  }
+
+  [data-print-document] {
+    position: absolute !important;
+    inset: 0 auto auto 0 !important;
+    width: 100% !important;
+    max-width: none !important;
+    margin: 0 !important;
+    box-shadow: none !important;
+  }
+
+  @page {
+    margin: 0.35in;
+  }
+}

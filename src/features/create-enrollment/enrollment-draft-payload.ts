@@ -38,8 +38,23 @@ export function buildEnrollmentDraftPayload(values: EnrollmentFormValues) {
   const tuition = parseMoney(values.tuition);
   const registrationFee = parseMoney(values.registrationFee);
   const materialFee = parseMoney(values.materialFee);
+  const eLearningFee = parseMoney(values.eLearningFee);
+  const travelAmount = parseMoney(values.travelAmount);
   const depositAmount = parseMoney(values.deposit);
-  const totalAmount = tuition + registrationFee + materialFee;
+  const confirmationPayment = parseMoney(values.confirmationPayment);
+  const installmentCount = parseOptionalNumber(values.installmentCount) ?? 0;
+  const installmentAmount = parseMoney(values.installmentAmount);
+  const rawDiscountValue = parseMoney(values.discountAmount);
+  const originalSubtotalAmount = tuition + registrationFee + materialFee + eLearningFee + travelAmount;
+  const discountAmount =
+    values.discountValueType === "percent"
+      ? originalSubtotalAmount * (Math.min(rawDiscountValue, 100) / 100)
+      : rawDiscountValue;
+  const adjustedSubtotalAmount = Math.max(originalSubtotalAmount - discountAmount, 0);
+  const stateTaxAmount = adjustedSubtotalAmount * 0.105;
+  const municipalTaxAmount = adjustedSubtotalAmount * 0.01;
+  const taxAmount = stateTaxAmount + municipalTaxAmount;
+  const totalAmount = adjustedSubtotalAmount + taxAmount;
   const balanceAmount = Math.max(totalAmount - depositAmount, 0);
 
   return {
@@ -48,9 +63,13 @@ export function buildEnrollmentDraftPayload(values: EnrollmentFormValues) {
       customer_id_last5: values.customerIdLast5,
       first_name: values.firstName.trim(),
       last_name: values.lastName.trim(),
-      email: values.email.trim(),
-      phone_mobile: values.mobilePhone?.trim() ?? "",
-      country: "Puerto Rico",
+      email: (values.parentGuardianEmail ?? values.email ?? "").trim(),
+      phone_mobile: (values.parentGuardianPhone ?? values.mobilePhone ?? "").trim(),
+      phone_alternate: values.alternatePhone?.trim() ?? "",
+      address_line1: values.addressLine1.trim(),
+      city: values.city.trim(),
+      postal_code: values.postalCode.trim(),
+      country: values.country.trim(),
     },
 
     enrollmentPayload: {
@@ -73,6 +92,8 @@ export function buildEnrollmentDraftPayload(values: EnrollmentFormValues) {
       is_complimentary: false,
       needs_review: true,
       notes: values.notes || null,
+      schedule_flexibility_status: values.scheduleFlexibilityStatus || null,
+      schedule_flexibility_notes: values.scheduleFlexibilityNotes || null,
     },
 
     lessonBreakdown: {
@@ -84,15 +105,41 @@ export function buildEnrollmentDraftPayload(values: EnrollmentFormValues) {
 
     paymentPlanPayload: {
       plan_type: values.paymentPlan,
+      tuition_amount: tuition,
+      registration_fee_amount: registrationFee,
+      material_fee_amount: materialFee,
+      elearning_fee_amount: eLearningFee,
+      travel_amount: travelAmount,
+      original_subtotal_amount: originalSubtotalAmount,
+      discount_amount: discountAmount,
+      adjusted_subtotal_amount: adjustedSubtotalAmount,
+      state_tax_amount: stateTaxAmount,
+      municipal_tax_amount: municipalTaxAmount,
+      tax_amount: taxAmount,
       total_amount: totalAmount,
       deposit_amount: depositAmount,
       balance_amount: balanceAmount,
+      confirmation_payment_amount: confirmationPayment,
+      installment_count: installmentCount,
+      installment_amount: installmentAmount,
       requires_authorization: rules.requiresPaymentAuthorization,
       status: values.paymentPlan === "full_paid"
         ? "full_paid"
         : rules.requiresPaymentAuthorization
           ? "pending_authorization"
           : "active",
+    },
+
+    discountPayload: {
+      promotion_type: values.discountPromotion ?? "none",
+      value_type: values.discountValueType ?? "amount",
+      value: rawDiscountValue,
+      amount: discountAmount,
+      reason: values.discountReason || null,
+      interview_date: values.interviewDate || null,
+      requires_manager_approval: rules.discountNeedsManagerApproval,
+      same_day_discount_needs_approval: rules.sameDayDiscountNeedsApproval,
+      silver_bullet_needs_approval: rules.silverBulletNeedsApproval,
     },
 
     assignmentRules: {
