@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
@@ -10,6 +10,7 @@ import {
   ClipboardCheck,
   CreditCard,
   FileText,
+  Printer,
   UserRound,
   UsersRound,
 } from "lucide-react";
@@ -183,6 +184,24 @@ const enrollmentPathOptions: EnrollmentPathOption[] = [
 
 type ValidationErrors = Partial<Record<keyof EnrollmentFormValues, string>>;
 
+type CcAuthorizationValues = {
+  cardType: string;
+  cardLast4: string;
+  expirationDate: string;
+  cvv: string;
+  confirmed: boolean;
+};
+
+const defaultCcAuthorizationValues: CcAuthorizationValues = {
+  cardType: "",
+  cardLast4: "",
+  expirationDate: "",
+  cvv: "",
+  confirmed: false,
+};
+
+const cardTypeOptions = ["Visa", "Mastercard", "American Express", "Discover", "Other"];
+
 const fieldLabelClassName = "text-sm font-semibold text-slate-800";
 const fieldControlClassName =
   "h-11 rounded-2xl border-slate-200 bg-white px-4 text-sm shadow-sm transition placeholder:text-slate-400 focus-visible:border-[#0057B8] focus-visible:ring-[#0057B8]/20";
@@ -314,6 +333,19 @@ function formatMoneyInput(value: string) {
   }
 
   return `$${dollars}`;
+}
+
+function formatCardLast4Input(value: string) {
+  return value.replace(/\D/g, "").slice(0, 4);
+}
+
+function formatCvvInput(value: string) {
+  return value.replace(/\D/g, "").slice(0, 4);
+}
+
+function formatExpirationInput(value: string) {
+  const digits = value.replace(/\D/g, "").slice(0, 4);
+  return digits.length <= 2 ? digits : `${digits.slice(0, 2)}/${digits.slice(2)}`;
 }
 
 function getAutoSelectionsForEnrollmentType(enrollmentType: string) {
@@ -569,6 +601,11 @@ function StepContent({
   draftPayload,
   selectedEnrollmentPath,
   onEnrollmentPathSelect,
+  ccAuthorization,
+  setCcAuthorizationField,
+  onPrintCcAuthorization,
+  onClearCcAuthorization,
+  ccAuthorizationReady,
 }: Readonly<{
   stepId: string;
   values: EnrollmentFormValues;
@@ -581,6 +618,14 @@ function StepContent({
   draftPayload: EnrollmentDraftPayload | null;
   selectedEnrollmentPath: EnrollmentPath | "";
   onEnrollmentPathSelect: (option: EnrollmentPathOption) => void;
+  ccAuthorization: CcAuthorizationValues;
+  setCcAuthorizationField: <T extends keyof CcAuthorizationValues>(
+    field: T,
+    value: CcAuthorizationValues[T]
+  ) => void;
+  onPrintCcAuthorization: () => void;
+  onClearCcAuthorization: () => void;
+  ccAuthorizationReady: boolean;
 }>) {
   if (stepId === "path") {
     return (
@@ -1368,6 +1413,57 @@ function StepContent({
         />
       </div>
 
+      {rules.requiresPaymentAuthorization ? (
+        <Card className="cc-auth-print-area rounded-2xl border-slate-200 bg-white">
+          <CardHeader className="space-y-3">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <CardTitle>Credit Card Authorization</CardTitle>
+                <CardDescription>
+                  Complete this only when the customer is ready to authorize payment.
+                </CardDescription>
+              </div>
+              <Badge className="cc-auth-screen-only rounded-full border border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-50">
+                Not saved
+              </Badge>
+            </div>
+            <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900">
+              For security, card details entered here are only used for the printable authorization.
+              They are not included in the enrollment payload and are cleared after printing.
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            <div className="grid gap-4 md:grid-cols-2">
+              <NativeSelect label="Card type" required value={ccAuthorization.cardType} onChange={(value) => setCcAuthorizationField("cardType", value)}>
+                <option value="">Select card type</option>
+                {cardTypeOptions.map((option) => <option key={option} value={option}>{option}</option>)}
+              </NativeSelect>
+              <Field label="Last 4 digits" required value={ccAuthorization.cardLast4} onChange={(value) => setCcAuthorizationField("cardLast4", formatCardLast4Input(value))} placeholder="1234" />
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <Field label="Expiration date" required value={ccAuthorization.expirationDate} onChange={(value) => setCcAuthorizationField("expirationDate", formatExpirationInput(value))} placeholder="MM/YY" />
+              <Field label="CVV" required value={ccAuthorization.cvv} onChange={(value) => setCcAuthorizationField("cvv", formatCvvInput(value))} placeholder="Security code" />
+            </div>
+
+            <label className="flex gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm leading-6 text-slate-700">
+              <input type="checkbox" checked={ccAuthorization.confirmed} onChange={(event) => setCcAuthorizationField("confirmed", event.target.checked)} className="mt-1 h-4 w-4 rounded border-slate-300" />
+              <span>I confirm the card authorization information entered above is correct and ready to print for immediate processing.</span>
+            </label>
+
+            <div className="cc-auth-screen-only flex flex-wrap gap-3">
+              <Button type="button" onClick={onPrintCcAuthorization} disabled={!ccAuthorizationReady} className="h-11 rounded-2xl bg-[#0057B8] px-5 font-semibold hover:bg-[#004899]">
+                <Printer className="mr-2 h-4 w-4" />
+                Print / Save PDF
+              </Button>
+              <Button type="button" variant="outline" onClick={onClearCcAuthorization} className="h-11 rounded-2xl border-slate-200 bg-white px-5 font-semibold">
+                Clear card fields
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
+
       <Card className="rounded-2xl bg-slate-50">
         <CardHeader>
           <CardTitle>Draft Summary</CardTitle>
@@ -1433,6 +1529,7 @@ export function EnrollmentWizardShell() {
   const [selectedEnrollmentPath, setSelectedEnrollmentPath] = useState<EnrollmentPath | "">("");
   const [errors, setErrors] = useState<ValidationErrors>({});
   const [draftMessage, setDraftMessage] = useState<string | null>(null);
+  const [ccAuthorization, setCcAuthorization] = useState<CcAuthorizationValues>(defaultCcAuthorizationValues);
 
   const currentStep = wizardSteps[currentStepIndex];
   const CurrentStepIcon = currentStep.icon;
@@ -1455,6 +1552,23 @@ export function EnrollmentWizardShell() {
 
   const completedStepsCount = currentStepIndex;
 
+  const ccAuthorizationReady = useMemo(() => Boolean(
+    ccAuthorization.cardType &&
+    /^[0-9]{4}$/.test(ccAuthorization.cardLast4) &&
+    /^[0-9]{2}\/[0-9]{2}$/.test(ccAuthorization.expirationDate) &&
+    /^[0-9]{3,4}$/.test(ccAuthorization.cvv) &&
+    ccAuthorization.confirmed
+  ), [ccAuthorization]);
+
+  useEffect(() => {
+    const handleAfterPrint = () => {
+      delete document.body.dataset.printMode;
+      setCcAuthorization(defaultCcAuthorizationValues);
+    };
+
+    window.addEventListener("afterprint", handleAfterPrint);
+    return () => window.removeEventListener("afterprint", handleAfterPrint);
+  }, []);
 
   const setField = <T extends keyof EnrollmentFormValues>(
     field: T,
@@ -1471,6 +1585,19 @@ export function EnrollmentWizardShell() {
     }));
 
     setDraftMessage(null);
+  };
+
+  const setCcAuthorizationField = <T extends keyof CcAuthorizationValues>(
+    field: T,
+    value: CcAuthorizationValues[T]
+  ) => setCcAuthorization((current) => ({ ...current, [field]: value }));
+
+  const clearCcAuthorization = () => setCcAuthorization(defaultCcAuthorizationValues);
+
+  const printCcAuthorization = () => {
+    if (!ccAuthorizationReady) return;
+    document.body.dataset.printMode = "cc-auth";
+    window.print();
   };
 
   const handleEnrollmentPathSelect = (option: EnrollmentPathOption) => {
@@ -1761,6 +1888,11 @@ export function EnrollmentWizardShell() {
                   draftPayload={draftPayload}
                   selectedEnrollmentPath={selectedEnrollmentPath}
                   onEnrollmentPathSelect={handleEnrollmentPathSelect}
+                  ccAuthorization={ccAuthorization}
+                  setCcAuthorizationField={setCcAuthorizationField}
+                  onPrintCcAuthorization={printCcAuthorization}
+                  onClearCcAuthorization={clearCcAuthorization}
+                  ccAuthorizationReady={ccAuthorizationReady}
                 />
 
             {draftMessage ? (
