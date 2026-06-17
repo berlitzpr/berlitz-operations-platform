@@ -607,6 +607,7 @@ function StepContent({
   onClearCcAuthorization,
   ccAuthorizationReady,
   onPrintPrivateIntensiveAnnex,
+  onPrintEnrollmentPacket,
 }: Readonly<{
   stepId: string;
   values: EnrollmentFormValues;
@@ -628,6 +629,7 @@ function StepContent({
   onClearCcAuthorization: () => void;
   ccAuthorizationReady: boolean;
   onPrintPrivateIntensiveAnnex: () => void;
+  onPrintEnrollmentPacket: () => void;
 }>) {
   if (stepId === "path") {
     return (
@@ -1434,6 +1436,58 @@ function StepContent({
         />
       </div>
 
+      <Card className="enrollment-packet-screen-only rounded-2xl border-blue-100 bg-blue-50/60">
+        <CardHeader className="space-y-3">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <CardTitle>Enrollment Packet</CardTitle>
+              <CardDescription>
+                Print all currently available documents that apply to this enrollment.
+              </CardDescription>
+            </div>
+            <Button
+              type="button"
+              onClick={onPrintEnrollmentPacket}
+              disabled={
+                (!rules.isPrivateIntensive && !rules.requiresPaymentAuthorization) ||
+                (rules.requiresPaymentAuthorization && !ccAuthorizationReady)
+              }
+              className="h-11 rounded-2xl bg-[#0057B8] px-5 font-semibold hover:bg-[#004899]"
+            >
+              <Printer className="mr-2 h-4 w-4" />
+              Print Enrollment Packet
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-3 text-sm">
+          <div className="grid gap-3 md:grid-cols-3">
+            <div className="rounded-2xl border border-slate-200 bg-white p-4">
+              <p className="font-semibold text-slate-950">Enrollment Agreement</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Required. Printable template will be added in the agreement pass.
+              </p>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-white p-4">
+              <p className="font-semibold text-slate-950">Private Intensive Annex</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {rules.isPrivateIntensive ? "Included in packet." : "Not required for this enrollment."}
+              </p>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-white p-4">
+              <p className="font-semibold text-slate-950">Credit Card Authorization</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {rules.requiresPaymentAuthorization
+                  ? ccAuthorizationReady
+                    ? "Included in packet."
+                    : "Complete and confirm before packet printing."
+                  : "Not required for this payment plan."}
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="enrollment-packet-print-area space-y-5">
       {rules.isPrivateIntensive ? (
         <Card className="private-intensive-annex-print-area rounded-2xl border-slate-200 bg-white">
           <CardHeader className="private-intensive-annex-screen-only space-y-3">
@@ -1588,6 +1642,7 @@ function StepContent({
           </CardContent>
         </Card>
       ) : null}
+      </div>
 
       <Card className="rounded-2xl bg-slate-50">
         <CardHeader>
@@ -1690,7 +1745,7 @@ export function EnrollmentWizardShell() {
       const printMode = document.body.dataset.printMode;
       delete document.body.dataset.printMode;
 
-      if (printMode === "cc-auth") {
+      if (printMode === "cc-auth" || printMode === "enrollment-packet") {
         setCcAuthorization(defaultCcAuthorizationValues);
       }
     };
@@ -1731,6 +1786,21 @@ export function EnrollmentWizardShell() {
 
   const printPrivateIntensiveAnnex = () => {
     document.body.dataset.printMode = "private-intensive-annex";
+    window.print();
+  };
+
+  const printEnrollmentPacket = () => {
+    const rules = getEnrollmentRules(values);
+
+    if (!rules.isPrivateIntensive && !rules.requiresPaymentAuthorization) {
+      return;
+    }
+
+    if (rules.requiresPaymentAuthorization && !ccAuthorizationReady) {
+      return;
+    }
+
+    document.body.dataset.printMode = "enrollment-packet";
     window.print();
   };
 
@@ -2028,6 +2098,7 @@ export function EnrollmentWizardShell() {
                   onClearCcAuthorization={clearCcAuthorization}
                   ccAuthorizationReady={ccAuthorizationReady}
                   onPrintPrivateIntensiveAnnex={printPrivateIntensiveAnnex}
+                  onPrintEnrollmentPacket={printEnrollmentPacket}
                 />
 
             {draftMessage ? (
